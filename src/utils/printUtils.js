@@ -1,7 +1,7 @@
 
 import { toast } from "sonner";
 
-export const printReport = (reportName: string = "Report") => {
+export const printReport = (reportName = "Report") => {
   // Show a toast message
   toast.info("Preparing report for printing...");
   
@@ -27,7 +27,7 @@ export const printReport = (reportName: string = "Report") => {
   }, 500);
 };
 
-export const exportReportAsPDF = (reportName: string = "Report") => {
+export const exportReportAsPDF = (reportName = "Report") => {
   // This is a mock function - in a real app this would use a library like jsPDF
   toast.info("Preparing PDF export...");
   
@@ -36,7 +36,7 @@ export const exportReportAsPDF = (reportName: string = "Report") => {
   }, 1000);
 };
 
-export const shareReport = (reportName: string = "Report") => {
+export const shareReport = (reportName = "Report") => {
   // This is a mock function - in a real app this would use the Web Share API or a custom sharing solution
   if (navigator.share) {
     navigator.share({
