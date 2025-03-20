@@ -1,13 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize the Supabase client
-// These keys should be replaced with your actual Supabase URL and anon key
-// NOTE: For production, these should be stored in environment variables
-const supabaseUrl = 'https://your-supabase-project-url.supabase.co';
-const supabaseAnonKey = 'your-supabase-anon-key';
+// Initialize the Supabase client with the correct project URL and anon key
+const supabaseUrl = 'https://meviqygiidqwiokddmup.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ldmlxeWdpaWRxd2lva2RkbXVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI0NTcyNjUsImV4cCI6MjA1ODAzMzI2NX0.pzVumUigkNNP3PN9b1g9GiEXFu8mCO38pZfBYiDng8s';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
 
 // Authentication functions
 export const signUp = async (email, password, userData = {}) => {
