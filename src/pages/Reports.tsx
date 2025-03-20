@@ -1,10 +1,27 @@
 
-import React from "react";
+import React, { useState } from "react";
 import Navigation from "@/components/Navigation";
+import ResumeFilter from "@/components/ResumeFilter";
+import CandidateComparison from "@/components/CandidateComparison";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, LineChart, PieChart, Printer, Download, Share2 } from "lucide-react";
+import { 
+  BarChart, 
+  LineChart, 
+  PieChart, 
+  Printer, 
+  Download, 
+  Share2,
+  FileSpreadsheet,
+  Filter,
+  Users
+} from "lucide-react";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   Bar,
   BarChart as RechartBarChart,
@@ -19,8 +36,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { printReport, exportReportAsPDF, shareReport } from "@/utils/printUtils";
+import { toast } from "sonner";
 
 const Reports = () => {
+  const [activeTab, setActiveTab] = useState("overview");
+  
   // Sample data for charts
   const skillDistributionData = [
     { name: "Programming", value: 35 },
@@ -65,6 +86,53 @@ const Reports = () => {
   
   const COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
   
+  // Filter state management
+  const [filters, setFilters] = useState({
+    showTopCandidatesOnly: false
+  });
+  
+  const handleFilterChange = (newFilters: any) => {
+    setFilters(newFilters);
+    toast.success("Filters applied successfully");
+  };
+  
+  // Function handlers for buttons
+  const handlePrint = () => {
+    const reportNames = {
+      overview: "Overview Report",
+      candidates: "Candidate Analysis Report",
+      skills: "Skills Analysis Report",
+      timeline: "Hiring Timeline Report",
+      comparison: "Candidate Comparison Report"
+    };
+    
+    printReport(reportNames[activeTab as keyof typeof reportNames]);
+  };
+  
+  const handleExport = () => {
+    const reportNames = {
+      overview: "Overview Report",
+      candidates: "Candidate Analysis Report",
+      skills: "Skills Analysis Report",
+      timeline: "Hiring Timeline Report",
+      comparison: "Candidate Comparison Report"
+    };
+    
+    exportReportAsPDF(reportNames[activeTab as keyof typeof reportNames]);
+  };
+  
+  const handleShare = () => {
+    const reportNames = {
+      overview: "Overview Report",
+      candidates: "Candidate Analysis Report",
+      skills: "Skills Analysis Report",
+      timeline: "Hiring Timeline Report",
+      comparison: "Candidate Comparison Report"
+    };
+    
+    shareReport(reportNames[activeTab as keyof typeof reportNames]);
+  };
+  
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -80,30 +148,38 @@ const Reports = () => {
             </div>
             
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="h-4 w-4 mr-1" />
                 Print
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-1" />
                 Export
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleShare}>
                 <Share2 className="h-4 w-4 mr-1" />
                 Share
               </Button>
             </div>
           </div>
           
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList>
+          <Tabs 
+            defaultValue="overview" 
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-6"
+          >
+            <TabsList className="grid grid-cols-5 md:w-auto w-full">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="candidates">Candidates</TabsTrigger>
               <TabsTrigger value="skills">Skills Analysis</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="comparison">Comparison</TabsTrigger>
             </TabsList>
             
             <TabsContent value="overview" className="space-y-6">
+              <ResumeFilter onFilterChange={handleFilterChange} />
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="shadow-subtle">
                   <CardHeader className="pb-2">
@@ -243,77 +319,303 @@ const Reports = () => {
             </TabsContent>
             
             <TabsContent value="candidates">
+              <ResumeFilter onFilterChange={handleFilterChange} />
+              
               <Card className="shadow-subtle">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Candidate Detail Analysis</CardTitle>
+                  <Button variant="outline" size="sm">
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />
+                    Export Data
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground mb-6">
-                    This section would contain detailed candidate-by-candidate analysis with individual strengths, 
-                    weaknesses, and potential fit assessments.
-                  </p>
-                  
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
-                      <BarChart className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-lg font-medium mb-2">Candidate Reports</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      This feature will be expanded in the next version to provide detailed
-                      candidate-specific reports and comparisons.
-                    </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4">Candidate</th>
+                          <th className="text-left py-3 px-4">Experience</th>
+                          <th className="text-left py-3 px-4">Skills</th>
+                          <th className="text-left py-3 px-4">Education</th>
+                          <th className="text-left py-3 px-4">Match Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b hover:bg-muted/50">
+                          <td className="py-3 px-4">Alex Johnson</td>
+                          <td className="py-3 px-4">8 years</td>
+                          <td className="py-3 px-4">React, TypeScript, Node.js</td>
+                          <td className="py-3 px-4">Master's in CS</td>
+                          <td className="py-3 px-4"><span className="font-semibold text-green-600">92%</span></td>
+                        </tr>
+                        <tr className="border-b hover:bg-muted/50">
+                          <td className="py-3 px-4">Morgan Smith</td>
+                          <td className="py-3 px-4">5 years</td>
+                          <td className="py-3 px-4">JavaScript, React, UX Design</td>
+                          <td className="py-3 px-4">Bachelor's in CS</td>
+                          <td className="py-3 px-4"><span className="font-semibold text-green-600">87%</span></td>
+                        </tr>
+                        <tr className="border-b hover:bg-muted/50">
+                          <td className="py-3 px-4">Taylor Williams</td>
+                          <td className="py-3 px-4">4 years</td>
+                          <td className="py-3 px-4">React Native, Redux, GraphQL</td>
+                          <td className="py-3 px-4">Bachelor's in SE</td>
+                          <td className="py-3 px-4"><span className="font-semibold text-green-600">82%</span></td>
+                        </tr>
+                        <tr className="border-b hover:bg-muted/50">
+                          <td className="py-3 px-4">Jordan Brown</td>
+                          <td className="py-3 px-4">3 years</td>
+                          <td className="py-3 px-4">Vue.js, CSS, JavaScript</td>
+                          <td className="py-3 px-4">Associate's in CS</td>
+                          <td className="py-3 px-4"><span className="font-semibold text-yellow-600">78%</span></td>
+                        </tr>
+                        <tr className="border-b hover:bg-muted/50">
+                          <td className="py-3 px-4">Casey Davis</td>
+                          <td className="py-3 px-4">6 years</td>
+                          <td className="py-3 px-4">Angular, Java, Python</td>
+                          <td className="py-3 px-4">Bachelor's in IT</td>
+                          <td className="py-3 px-4"><span className="font-semibold text-yellow-600">75%</span></td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
             
             <TabsContent value="skills">
-              <Card className="shadow-subtle">
+              <ResumeFilter onFilterChange={handleFilterChange} />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="shadow-subtle">
+                  <CardHeader>
+                    <CardTitle>Skills Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartPieChart>
+                          <Pie
+                            data={skillDistributionData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            labelLine={true}
+                            label
+                          >
+                            {skillDistributionData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </RechartPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    <div className="mt-4">
+                      <h3 className="text-lg font-medium mb-2">Skills Gap Analysis</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Top skills present in the candidate pool compared with job requirements.
+                      </p>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">Programming</span>
+                            <span className="text-sm font-medium">90%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div className="bg-primary rounded-full h-2" style={{ width: "90%" }}></div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">Design</span>
+                            <span className="text-sm font-medium">75%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div className="bg-primary rounded-full h-2" style={{ width: "75%" }}></div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">Communication</span>
+                            <span className="text-sm font-medium">60%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div className="bg-primary rounded-full h-2" style={{ width: "60%" }}></div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">Problem Solving</span>
+                            <span className="text-sm font-medium">45%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div className="bg-primary rounded-full h-2" style={{ width: "45%" }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="shadow-subtle">
+                  <CardHeader>
+                    <CardTitle>Market Trends</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartBarChart data={[
+                          { skill: "JavaScript", current: 85, market: 90 },
+                          { skill: "React", current: 70, market: 75 },
+                          { skill: "TypeScript", current: 60, market: 70 },
+                          { skill: "Node.js", current: 45, market: 60 },
+                          { skill: "GraphQL", current: 25, market: 40 },
+                        ]}>
+                          <XAxis dataKey="skill" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="current" name="Current Candidates" fill="#3B82F6" />
+                          <Bar dataKey="market" name="Market Demand" fill="#F59E0B" />
+                        </RechartBarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    <div className="mt-4">
+                      <h3 className="text-lg font-medium mb-2">Skill Recommendations</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Based on candidate pool analysis and market trends.
+                      </p>
+                      
+                      <ul className="space-y-2 list-disc pl-5">
+                        <li>Emphasize TypeScript experience in future job postings</li>
+                        <li>Consider candidates with GraphQL experience as a plus</li>
+                        <li>Look for candidates with both frontend and backend skills</li>
+                        <li>Problem-solving skills are underrepresented in current candidate pool</li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="timeline">
+              <Card className="shadow-subtle mb-6">
                 <CardHeader>
-                  <CardTitle>Skills Analysis</CardTitle>
+                  <CardTitle>Hiring Timeline</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground mb-6">
-                    This section would contain detailed analysis of required skills vs. available 
-                    skills in the candidate pool.
-                  </p>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartLineChart data={timelineData}>
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="candidates" 
+                          name="Total Candidates" 
+                          stroke="#3B82F6" 
+                          strokeWidth={2} 
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="hired" 
+                          name="Candidates Hired" 
+                          stroke="#10B981" 
+                          strokeWidth={2} 
+                        />
+                      </RechartLineChart>
+                    </ResponsiveContainer>
+                  </div>
                   
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
-                      <PieChart className="h-8 w-8 text-muted-foreground" />
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-muted/30 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-primary">42</div>
+                      <div className="text-sm text-muted-foreground">Total Candidates</div>
                     </div>
-                    <h3 className="text-lg font-medium mb-2">Skills Gap Analysis</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      This feature will be expanded in the next version to provide
-                      detailed skills gap analysis and market comparisons.
+                    
+                    <div className="bg-muted/30 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-green-500">23</div>
+                      <div className="text-sm text-muted-foreground">Interviews Conducted</div>
+                    </div>
+                    
+                    <div className="bg-muted/30 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-amber-500">8</div>
+                      <div className="text-sm text-muted-foreground">Offers Extended</div>
+                    </div>
+                    
+                    <div className="bg-muted/30 p-4 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-blue-500">6</div>
+                      <div className="text-sm text-muted-foreground">Candidates Hired</div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                    <h3 className="text-lg font-medium mb-2">Hiring Process Efficiency</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Analysis of time spent at each stage of the hiring process.
                     </p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Resume Screening</span>
+                          <span className="text-sm font-medium">2 days avg.</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-green-500 rounded-full h-2" style={{ width: "20%" }}></div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Initial Interview</span>
+                          <span className="text-sm font-medium">4 days avg.</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-blue-500 rounded-full h-2" style={{ width: "40%" }}></div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Technical Assessment</span>
+                          <span className="text-sm font-medium">5 days avg.</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-amber-500 rounded-full h-2" style={{ width: "50%" }}></div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Final Decision</span>
+                          <span className="text-sm font-medium">3 days avg.</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div className="bg-purple-500 rounded-full h-2" style={{ width: "30%" }}></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
             
-            <TabsContent value="timeline">
-              <Card className="shadow-subtle">
-                <CardHeader>
-                  <CardTitle>Hiring Timeline</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-6">
-                    This section would contain detailed timeline analysis of the hiring process.
-                  </p>
-                  
-                  <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
-                      <LineChart className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-lg font-medium mb-2">Timeline Analysis</h3>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      This feature will be expanded in the next version to provide
-                      detailed hiring timeline visualizations and efficiency metrics.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+            <TabsContent value="comparison">
+              <CandidateComparison />
             </TabsContent>
           </Tabs>
         </div>
