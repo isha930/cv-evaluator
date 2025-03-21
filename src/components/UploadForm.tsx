@@ -8,17 +8,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Upload, FileText, Save } from "lucide-react";
+import { Upload, FileText, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { uploadMultipleResumes } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const UploadForm: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [skillsWeight, setSkillsWeight] = useState(33);
   const [experienceWeight, setExperienceWeight] = useState(33);
   const [educationWeight, setEducationWeight] = useState(34);
   const [dragActive, setDragActive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  
+  const { user } = useAuth();
   
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -35,34 +40,44 @@ const UploadForm: React.FC = () => {
     e.stopPropagation();
     setDragActive(false);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files);
+      handleFiles(newFiles);
     }
   };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      handleFiles(newFiles);
     }
   };
   
-  const handleFile = (file: File) => {
-    // Check if file is PDF
-    if (file.type !== 'application/pdf') {
-      toast.error('Please upload PDF files only');
-      return;
+  const handleFiles = (newFiles: File[]) => {
+    // Check if files are PDFs
+    const validFiles = newFiles.filter(file => file.type === 'application/pdf');
+    const invalidFiles = newFiles.filter(file => file.type !== 'application/pdf');
+    
+    if (invalidFiles.length > 0) {
+      toast.error(`${invalidFiles.length} file(s) were not added. Only PDF files are accepted.`);
     }
     
-    setFile(file);
-    toast.success('File added successfully');
+    if (validFiles.length > 0) {
+      setFiles(prevFiles => [...prevFiles, ...validFiles]);
+      toast.success(`${validFiles.length} file(s) added successfully`);
+    }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const removeFile = (index: number) => {
+    setFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
-    if (!file) {
-      toast.error('Please upload a resume');
+    if (files.length === 0) {
+      toast.error('Please upload at least one resume');
       return;
     }
     
@@ -71,24 +86,46 @@ const UploadForm: React.FC = () => {
       return;
     }
     
-    // Here you would handle the actual form submission
-    console.log({
-      file,
-      jobTitle,
-      jobDescription,
-      weights: {
-        skills: skillsWeight,
-        experience: experienceWeight,
-        education: educationWeight,
+    if (!user) {
+      toast.error('You must be logged in to upload resumes');
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      const jobData = {
+        jobTitle,
+        jobDescription,
+        skillsWeight,
+        experienceWeight,
+        educationWeight
+      };
+      
+      const { results, errors } = await uploadMultipleResumes(files, user.id, jobData);
+      
+      if (errors && errors.length > 0) {
+        errors.forEach(err => {
+          toast.error(`Error uploading ${err.file}: ${err.error.message}`);
+        });
       }
-    });
-    
-    toast.success('Resume uploaded for evaluation');
-    
-    // Reset form
-    setFile(null);
-    setJobTitle('');
-    setJobDescription('');
+      
+      if (results && results.length > 0) {
+        toast.success(`${results.length} resume(s) uploaded successfully`);
+        
+        // Reset form
+        setFiles([]);
+        setJobTitle('');
+        setJobDescription('');
+      } else {
+        toast.error('No resumes were uploaded successfully');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('An error occurred during upload');
+    } finally {
+      setIsUploading(false);
+    }
   };
   
   return (
@@ -126,14 +163,14 @@ const UploadForm: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Upload Resumes</CardTitle>
-          <CardDescription>Drag and drop your resume files or click to browse</CardDescription>
+          <CardDescription>Drag and drop multiple resume files or click to browse</CardDescription>
         </CardHeader>
         <CardContent>
           <div 
             className={cn(
               "border-2 border-dashed rounded-lg p-10 transition-all duration-200 text-center",
               dragActive ? "border-primary bg-primary/5" : "border-border",
-              file ? "bg-muted/50" : ""
+              files.length > 0 ? "bg-muted/50" : ""
             )}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -146,24 +183,25 @@ const UploadForm: React.FC = () => {
               accept=".pdf"
               className="hidden"
               onChange={handleFileChange}
+              multiple
             />
             
             <div className="flex flex-col items-center space-y-4">
-              {!file ? (
+              {files.length === 0 ? (
                 <>
                   <div className="rounded-full p-4 bg-primary/10 text-primary">
                     <Upload className="h-8 w-8" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">Drag file here or click to upload</p>
-                    <p className="text-xs text-muted-foreground mt-1">Supports PDF format only</p>
+                    <p className="text-sm font-medium">Drag files here or click to upload</p>
+                    <p className="text-xs text-muted-foreground mt-1">Supports multiple PDF files</p>
                   </div>
                   <Button 
                     variant="outline" 
                     onClick={() => document.getElementById('fileUpload')?.click()}
                     type="button"
                   >
-                    <FileText className="mr-2 h-4 w-4" /> Choose file
+                    <FileText className="mr-2 h-4 w-4" /> Choose files
                   </Button>
                 </>
               ) : (
@@ -172,22 +210,52 @@ const UploadForm: React.FC = () => {
                     <FileText className="h-8 w-8" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
+                    <p className="text-sm font-medium">{files.length} file(s) selected</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => document.getElementById('fileUpload')?.click()}
+                      type="button"
+                      className="mt-2"
+                    >
+                      Add more files
+                    </Button>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('fileUpload')?.click()}
-                    type="button"
-                  >
-                    Change file
-                  </Button>
                 </>
               )}
             </div>
           </div>
+          
+          {files.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-medium">Selected Files:</p>
+              <div className="max-h-60 overflow-y-auto rounded-md border">
+                {files.map((file, index) => (
+                  <div 
+                    key={`${file.name}-${index}`}
+                    className="flex items-center justify-between p-3 border-b last:border-b-0"
+                  >
+                    <div className="flex items-center">
+                      <FileText className="h-4 w-4 mr-2 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium truncate max-w-xs">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => removeFile(index)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       
@@ -314,9 +382,15 @@ const UploadForm: React.FC = () => {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end">
-          <Button type="submit">
-            <Save className="mr-2 h-4 w-4" />
-            Upload & Evaluate
+          <Button type="submit" disabled={isUploading}>
+            {isUploading ? (
+              <>Uploading...</>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Upload & Evaluate
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>

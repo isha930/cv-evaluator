@@ -45,25 +45,74 @@ export const getCurrentUser = async () => {
 };
 
 // Resume management functions
-export const uploadResume = async (file, userId) => {
-  if (!file) return { error: 'No file provided' };
+export const uploadMultipleResumes = async (files, userId, jobData) => {
+  if (!files || files.length === 0) return { error: 'No files provided' };
   
-  // Create a unique filename
-  const fileName = `${userId}_${Date.now()}_${file.name}`;
+  const uploadResults = [];
+  const errors = [];
   
-  // Upload file to Supabase Storage
-  const { data, error } = await supabase.storage
-    .from('resumes')
-    .upload(fileName, file);
+  for (const file of files) {
+    // Create a unique filename
+    const fileName = `${userId}_${Date.now()}_${file.name}`;
     
-  if (error) return { error };
-  
-  // Get the public URL for the file
-  const { data: urlData } = supabase.storage
-    .from('resumes')
-    .getPublicUrl(fileName);
+    // Upload file to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('resumes')
+      .upload(fileName, file);
+      
+    if (error) {
+      errors.push({ file: file.name, error });
+      continue;
+    }
     
-  return { data: { ...data, publicUrl: urlData.publicUrl }, error: null };
+    // Get the public URL for the file
+    const { data: urlData } = supabase.storage
+      .from('resumes')
+      .getPublicUrl(fileName);
+      
+    if (urlData) {
+      // Save resume data to the database
+      const resumeData = {
+        user_id: userId,
+        file_name: file.name,
+        file_url: urlData.publicUrl,
+        job_title: jobData.jobTitle,
+        job_description: jobData.jobDescription,
+        skills_weight: jobData.skillsWeight,
+        experience_weight: jobData.experienceWeight,
+        education_weight: jobData.educationWeight
+      };
+      
+      const { data: savedData, error: saveError } = await supabase
+        .from('resumes')
+        .insert([resumeData])
+        .select();
+        
+      if (saveError) {
+        errors.push({ file: file.name, error: saveError });
+      } else {
+        uploadResults.push({
+          file: file.name,
+          data: { ...data, ...savedData[0], publicUrl: urlData.publicUrl }
+        });
+      }
+    }
+  }
+  
+  return { 
+    results: uploadResults, 
+    errors: errors.length > 0 ? errors : null 
+  };
+};
+
+// Function to save job description data to the database
+export const saveJobDescription = async (jobData) => {
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert([jobData])
+    .select();
+    
+  return { data, error };
 };
 
 // Function to save resume data to the database
@@ -120,15 +169,6 @@ export const deleteResume = async (resumeId) => {
 };
 
 // Job management functions
-export const saveJobDescription = async (jobData) => {
-  const { data, error } = await supabase
-    .from('jobs')
-    .insert([jobData])
-    .select();
-    
-  return { data, error };
-};
-
 export const getUserJobs = async (userId) => {
   const { data, error } = await supabase
     .from('jobs')
