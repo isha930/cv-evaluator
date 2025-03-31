@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { toast } from "sonner";
 import { Upload, FileText, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadMultipleResumes } from "@/lib/supabase";
-import { useAuth } from "@/contexts/AuthContext";
 
 const UploadForm: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
@@ -23,7 +21,8 @@ const UploadForm: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  const { user } = useAuth();
+  // Since we removed the auth context, we'll use a placeholder user ID
+  const userId = 'anonymous';
   
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -86,11 +85,6 @@ const UploadForm: React.FC = () => {
       return;
     }
     
-    if (!user) {
-      toast.error('You must be logged in to upload resumes');
-      return;
-    }
-    
     setIsUploading(true);
     
     try {
@@ -102,7 +96,7 @@ const UploadForm: React.FC = () => {
         educationWeight
       };
       
-      const { results, errors } = await uploadMultipleResumes(files, user.id, jobData);
+      const { results, errors } = await uploadMultipleResumes(files, userId, jobData);
       
       if (errors && errors.length > 0) {
         errors.forEach(err => {
