@@ -5,44 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = 'https://meviqygiidqwiokddmup.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ldmlxeWdpaWRxd2lva2RkbXVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI0NTcyNjUsImV4cCI6MjA1ODAzMzI2NX0.pzVumUigkNNP3PN9b1g9GiEXFu8mCO38pZfBYiDng8s';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  }
-});
-
-// Authentication functions
-export const signUp = async (email, password, userData = {}) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: userData, // Additional user metadata
-    },
-  });
-  
-  return { data, error };
-};
-
-export const signIn = async (email, password) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  
-  return { data, error };
-};
-
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
-  return { error };
-};
-
-export const getCurrentUser = async () => {
-  const { data, error } = await supabase.auth.getUser();
-  return { user: data?.user, error };
-};
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Resume management functions
 export const uploadMultipleResumes = async (files, userId, jobData) => {
@@ -53,7 +16,7 @@ export const uploadMultipleResumes = async (files, userId, jobData) => {
   
   for (const file of files) {
     // Create a unique filename
-    const fileName = `${userId}_${Date.now()}_${file.name}`;
+    const fileName = `${userId || 'anonymous'}_${Date.now()}_${file.name}`;
     
     // Upload file to Supabase Storage
     const { data, error } = await supabase.storage
@@ -73,7 +36,7 @@ export const uploadMultipleResumes = async (files, userId, jobData) => {
     if (urlData) {
       // Save resume data to the database
       const resumeData = {
-        user_id: userId,
+        user_id: userId || 'anonymous',
         file_name: file.name,
         file_url: urlData.publicUrl,
         job_title: jobData.jobTitle,

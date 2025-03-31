@@ -3,11 +3,14 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Upload, BarChart2, FileText, Home } from "lucide-react";
+import { Upload, BarChart2, FileText, Home, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Toggle } from "@/components/ui/toggle";
 
 const Navigation = () => {
   const location = useLocation();
   const [mounted, setMounted] = useState(false);
+  const { theme, toggleTheme } = useTheme();
   
   useEffect(() => {
     setMounted(true);
@@ -52,7 +55,18 @@ const Navigation = () => {
         </nav>
         
         <div className="flex items-center space-x-4">
-          <Button className="hidden md:flex">Get Started</Button>
+          <Toggle 
+            aria-label="Toggle theme" 
+            pressed={theme === "dark"} 
+            onPressedChange={toggleTheme}
+            className="mr-2"
+          >
+            {theme === "dark" ? (
+              <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4" />
+            )}
+          </Toggle>
           
           <div className="md:hidden">
             <Button variant="ghost" size="icon" asChild>
