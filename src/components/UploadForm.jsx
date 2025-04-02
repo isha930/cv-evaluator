@@ -105,7 +105,7 @@ const UploadForm = () => {
       
       if (!jobId) {
         const jobResult = await createJob(jobData);
-        jobId = jobResult.job._id;
+        jobId = jobResult.job.id;
         setCurrentJobId(jobId);
       }
       

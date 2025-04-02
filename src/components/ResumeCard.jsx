@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowUp, ArrowDown, Eye, User, Briefcase, GraduationCap } from "lucide-react";
+import { ArrowUp, ArrowDown, Eye, User, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ResumeCard = ({
@@ -51,33 +51,25 @@ const ResumeCard = ({
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="flex items-center"><User className="h-3 w-3 mr-1" />Skills</span>
-                <span>{resume.skillScore}%</span>
+                <span>{resume.skillScore || resume.skill_score}%</span>
               </div>
-              <Progress value={resume.skillScore} className={cn("h-2", scoreToColor(resume.skillScore))} />
+              <Progress value={resume.skillScore || resume.skill_score} className={cn("h-2", scoreToColor(resume.skillScore || resume.skill_score))} />
             </div>
             
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="flex items-center"><Briefcase className="h-3 w-3 mr-1" />Experience</span>
-                <span>{resume.experienceScore}%</span>
+                <span>{resume.experienceScore || resume.experience_score}%</span>
               </div>
-              <Progress value={resume.experienceScore} className={cn("h-2", scoreToColor(resume.experienceScore))} />
-            </div>
-            
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center"><GraduationCap className="h-3 w-3 mr-1" />Education</span>
-                <span>{resume.educationScore}%</span>
-              </div>
-              <Progress value={resume.educationScore} className={cn("h-2", scoreToColor(resume.educationScore))} />
+              <Progress value={resume.experienceScore || resume.experience_score} className={cn("h-2", scoreToColor(resume.experienceScore || resume.experience_score))} />
             </div>
             
             <div className="space-y-1 pt-2">
               <div className="flex justify-between font-medium">
                 <span>Overall Score</span>
-                <span>{resume.overallScore}%</span>
+                <span>{resume.overallScore || resume.overall_score}%</span>
               </div>
-              <Progress value={resume.overallScore} className={cn("h-3", scoreToColor(resume.overallScore))} />
+              <Progress value={resume.overallScore || resume.overall_score} className={cn("h-3", scoreToColor(resume.overallScore || resume.overall_score))} />
             </div>
           </div>
         )}
@@ -87,9 +79,9 @@ const ResumeCard = ({
             <div className="flex-1">
               <div className="flex justify-between text-sm font-medium">
                 <span>Overall</span>
-                <span>{resume.overallScore}%</span>
+                <span>{resume.overallScore || resume.overall_score}%</span>
               </div>
-              <Progress value={resume.overallScore} className={cn("h-2 mt-1", scoreToColor(resume.overallScore))} />
+              <Progress value={resume.overallScore || resume.overall_score} className={cn("h-2 mt-1", scoreToColor(resume.overallScore || resume.overall_score))} />
             </div>
             <div className="flex space-x-1">
               <Button variant="outline" size="icon" onClick={onView}>
