@@ -51,25 +51,25 @@ const ResumeCard = ({
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="flex items-center"><User className="h-3 w-3 mr-1" />Skills</span>
-                <span>{resume.skillScore || resume.skill_score}%</span>
+                <span>{resume.skillScore}%</span>
               </div>
-              <Progress value={resume.skillScore || resume.skill_score} className={cn("h-2", scoreToColor(resume.skillScore || resume.skill_score))} />
+              <Progress value={resume.skillScore} className={cn("h-2", scoreToColor(resume.skillScore))} />
             </div>
             
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="flex items-center"><Briefcase className="h-3 w-3 mr-1" />Experience</span>
-                <span>{resume.experienceScore || resume.experience_score}%</span>
+                <span>{resume.experienceScore}%</span>
               </div>
-              <Progress value={resume.experienceScore || resume.experience_score} className={cn("h-2", scoreToColor(resume.experienceScore || resume.experience_score))} />
+              <Progress value={resume.experienceScore} className={cn("h-2", scoreToColor(resume.experienceScore))} />
             </div>
             
             <div className="space-y-1 pt-2">
               <div className="flex justify-between font-medium">
                 <span>Overall Score</span>
-                <span>{resume.overallScore || resume.overall_score}%</span>
+                <span>{resume.overallScore}%</span>
               </div>
-              <Progress value={resume.overallScore || resume.overall_score} className={cn("h-3", scoreToColor(resume.overallScore || resume.overall_score))} />
+              <Progress value={resume.overallScore} className={cn("h-3", scoreToColor(resume.overallScore))} />
             </div>
           </div>
         )}
@@ -79,9 +79,9 @@ const ResumeCard = ({
             <div className="flex-1">
               <div className="flex justify-between text-sm font-medium">
                 <span>Overall</span>
-                <span>{resume.overallScore || resume.overall_score}%</span>
+                <span>{resume.overallScore}%</span>
               </div>
-              <Progress value={resume.overallScore || resume.overall_score} className={cn("h-2 mt-1", scoreToColor(resume.overallScore || resume.overall_score))} />
+              <Progress value={resume.overallScore} className={cn("h-2 mt-1", scoreToColor(resume.overallScore))} />
             </div>
             <div className="flex space-x-1">
               <Button variant="outline" size="icon" onClick={onView}>

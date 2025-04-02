@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from "sonner";
 import { Download, Share2 } from "lucide-react";
 import { getResumesByJobId, updateResumeRank, getJobById } from "@/lib/api";
+import { ResumeData } from "@/components/ResumeCard";
 
-// Define Resume type
+// Define Resume type from the API
 interface Resume {
   id: string;
   name: string;
@@ -138,6 +139,23 @@ const Ranking = () => {
     toast.success("Export feature will be implemented soon");
   };
   
+  // Map API Resume format to ResumeData format for components
+  const mapToResumeData = (resume: Resume): ResumeData => {
+    return {
+      id: resume.id,
+      name: resume.name,
+      position: resume.position,
+      skillScore: resume.skill_score,
+      experienceScore: resume.experience_score,
+      educationScore: 0, // Since we're removing education, set to 0
+      overallScore: resume.overall_score,
+      rank: resume.rank
+    };
+  };
+  
+  // Convert resumes to ResumeData format for components
+  const resumeDataList: ResumeData[] = resumes.map(mapToResumeData);
+  
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -185,7 +203,7 @@ const Ranking = () => {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
               <div className="xl:col-span-8 overflow-auto bg-card rounded-lg shadow-subtle border">
                 <RankingTable 
-                  resumes={resumes}
+                  resumes={resumeDataList}
                   onRankUp={handleRankUp}
                   onRankDown={handleRankDown}
                   onView={handleView}
@@ -196,7 +214,7 @@ const Ranking = () => {
                 <div className="bg-card rounded-lg p-4 shadow-subtle border">
                   <h3 className="font-medium mb-3">Top Candidates</h3>
                   <div className="space-y-4">
-                    {resumes.slice(0, 3).map(resume => (
+                    {resumeDataList.slice(0, 3).map(resume => (
                       <ResumeCard 
                         key={resume.id}
                         resume={resume}
