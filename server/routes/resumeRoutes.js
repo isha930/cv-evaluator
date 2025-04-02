@@ -6,8 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const pdfParse = require('pdf-parse');
-const Resume = require('../models/Resume');
-const Job = require('../models/Job');
+const { supabase } = require('../index');
+const { formatResumeForResponse, getResumeInsertData } = require('../models/Resume');
 
 // Configure multer for PDF file uploads
 const storage = multer.diskStorage({
@@ -80,7 +80,7 @@ const analyzeResume = async (pdfBuffer, jobDescription, skillsWeight, experience
     
     // Calculate overall score based on weights
     const overallScore = Math.round((skillScore * (skillsWeight / 100)) + 
-                                 (experienceScore * (experienceWeight / 100)));
+                               (experienceScore * (experienceWeight / 100)));
     
     // Extract name and position (simplified approach)
     const namePositionRegex = /([A-Z][a-z]+ [A-Z][a-z]+)/g;
@@ -163,8 +163,13 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
     }
     
     // Get the job details
-    const job = await Job.findById(jobId);
-    if (!job) {
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+      
+    if (jobError) {
       return res.status(404).json({ message: 'Job not found' });
     }
     
@@ -175,42 +180,102 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
     const analysisResult = await analyzeResume(
       pdfBuffer, 
       job.description, 
-      job.skillsWeight, 
-      job.experienceWeight
+      job.skills_weight, 
+      job.experience_weight
     );
     
-    // Create and save a new resume record
-    const resume = new Resume({
+    // Upload file to Supabase Storage
+    const fileExt = path.extname(req.file.originalname);
+    const fileName = `${Date.now()}${fileExt}`;
+    const filePath = req.file.path;
+    
+    const fileBuffer = fs.readFileSync(filePath);
+    
+    const { data: storageData, error: storageError } = await supabase
+      .storage
+      .from('resumes')
+      .upload(fileName, fileBuffer, {
+        contentType: 'application/pdf',
+        cacheControl: '3600'
+      });
+      
+    if (storageError) {
+      console.error('Storage error:', storageError);
+      return res.status(500).json({ message: 'Error uploading file to storage', error: storageError.message });
+    }
+    
+    // Get public URL for the file
+    const { data: publicUrlData } = supabase
+      .storage
+      .from('resumes')
+      .getPublicUrl(fileName);
+      
+    const publicUrl = publicUrlData.publicUrl;
+    
+    // Create the resume record with complete data
+    const resumeData = getResumeInsertData({
       name: candidateName || analysisResult.name,
       position: position || analysisResult.position,
-      filePath: req.file.path,
+      filePath: filePath,
       fileName: req.file.originalname,
-      fileUrl: `/uploads/${req.file.filename}`,
+      fileUrl: publicUrl,
       skillScore: analysisResult.skillScore,
       skillDescription: analysisResult.skillDescription,
       experienceScore: analysisResult.experienceScore,
       experienceDescription: analysisResult.experienceDescription,
       overallScore: analysisResult.overallScore,
       summary: analysisResult.summary,
-      jobId: job._id
+      jobId: job.id,
+      rank: 0  // Will update this after inserting
     });
     
-    await resume.save();
+    // Insert the resume data
+    const { data: resume, error: insertError } = await supabase
+      .from('resumes')
+      .insert([resumeData])
+      .select()
+      .single();
+      
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      return res.status(500).json({ message: 'Error saving resume data', error: insertError.message });
+    }
     
     // Update ranks for all resumes of this job
-    const allResumes = await Resume.find({ jobId: job._id })
-      .sort({ overallScore: -1 });
+    const { data: allResumes, error: rankingError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('job_id', job.id)
+      .order('overall_score', { ascending: false });
       
+    if (rankingError) {
+      console.error('Ranking error:', rankingError);
+      return res.status(500).json({ message: 'Error updating resume ranks', error: rankingError.message });
+    }
+    
+    // Update each resume's rank
     for (let i = 0; i < allResumes.length; i++) {
-      await Resume.findByIdAndUpdate(allResumes[i]._id, { rank: i + 1 });
+      await supabase
+        .from('resumes')
+        .update({ rank: i + 1 })
+        .eq('id', allResumes[i].id);
+    }
+    
+    // Get the updated resume record with the correct rank
+    const { data: updatedResume, error: fetchError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', resume.id)
+      .single();
+      
+    if (fetchError) {
+      console.error('Fetch error:', fetchError);
+      return res.status(500).json({ message: 'Error fetching updated resume', error: fetchError.message });
     }
     
     res.status(201).json({
       message: 'Resume uploaded and analyzed successfully',
-      resume: {
-        ...resume.toObject(),
-        rank: allResumes.findIndex(r => r._id.toString() === resume._id.toString()) + 1
-      }
+      resume: formatResumeForResponse(updatedResume)
     });
   } catch (error) {
     console.error('Error uploading resume:', error);
@@ -222,10 +287,18 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
 router.get('/job/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const resumes = await Resume.find({ jobId }).sort({ rank: 1 });
     
-    res.status(200).json(resumes);
+    const { data: resumes, error } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('rank', { ascending: true });
+      
+    if (error) throw error;
+    
+    res.status(200).json(resumes.map(resume => formatResumeForResponse(resume)));
   } catch (error) {
+    console.error('Error fetching resumes:', error);
     res.status(500).json({ message: 'Error fetching resumes', error: error.message });
   }
 });
@@ -233,13 +306,22 @@ router.get('/job/:jobId', async (req, res) => {
 // Get a specific resume
 router.get('/:id', async (req, res) => {
   try {
-    const resume = await Resume.findById(req.params.id);
-    if (!resume) {
-      return res.status(404).json({ message: 'Resume not found' });
+    const { data: resume, error } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ message: 'Resume not found' });
+      }
+      throw error;
     }
     
-    res.status(200).json(resume);
+    res.status(200).json(formatResumeForResponse(resume));
   } catch (error) {
+    console.error('Error fetching resume:', error);
     res.status(500).json({ message: 'Error fetching resume', error: error.message });
   }
 });
@@ -248,10 +330,19 @@ router.get('/:id', async (req, res) => {
 router.put('/rank/:id/:direction', async (req, res) => {
   try {
     const { id, direction } = req.params;
-    const resume = await Resume.findById(id);
     
-    if (!resume) {
-      return res.status(404).json({ message: 'Resume not found' });
+    // Get the current resume
+    const { data: resume, error: fetchError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', id)
+      .single();
+      
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return res.status(404).json({ message: 'Resume not found' });
+      }
+      throw fetchError;
     }
     
     const currentRank = resume.rank;
@@ -262,22 +353,42 @@ router.put('/rank/:id/:direction', async (req, res) => {
     }
     
     // Find resume with the target rank
-    const targetResume = await Resume.findOne({ 
-      jobId: resume.jobId, 
-      rank: newRank 
-    });
+    const { data: targetResumes, error: targetError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('job_id', resume.job_id)
+      .eq('rank', newRank);
+      
+    if (targetError) throw targetError;
     
-    if (targetResume) {
-      // Swap ranks
-      targetResume.rank = currentRank;
-      await targetResume.save();
+    if (targetResumes && targetResumes.length > 0) {
+      const targetResume = targetResumes[0];
+      
+      // Swap ranks (update target resume's rank)
+      const { error: swapError } = await supabase
+        .from('resumes')
+        .update({ rank: currentRank })
+        .eq('id', targetResume.id);
+        
+      if (swapError) throw swapError;
     }
     
-    resume.rank = newRank;
-    await resume.save();
+    // Update current resume's rank
+    const { data: updatedResume, error: updateError } = await supabase
+      .from('resumes')
+      .update({ rank: newRank })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (updateError) throw updateError;
     
-    res.status(200).json({ message: 'Rank updated successfully', resume });
+    res.status(200).json({ 
+      message: 'Rank updated successfully', 
+      resume: formatResumeForResponse(updatedResume) 
+    });
   } catch (error) {
+    console.error('Error updating rank:', error);
     res.status(500).json({ message: 'Error updating rank', error: error.message });
   }
 });
@@ -285,29 +396,57 @@ router.put('/rank/:id/:direction', async (req, res) => {
 // Delete a resume
 router.delete('/:id', async (req, res) => {
   try {
-    const resume = await Resume.findById(req.params.id);
-    
-    if (!resume) {
-      return res.status(404).json({ message: 'Resume not found' });
+    // Get the resume to delete
+    const { data: resume, error: fetchError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return res.status(404).json({ message: 'Resume not found' });
+      }
+      throw fetchError;
     }
     
-    // Delete the file if it exists
-    if (resume.filePath && fs.existsSync(resume.filePath)) {
-      fs.unlinkSync(resume.filePath);
+    // Delete the file from storage if it exists
+    if (resume.file_url) {
+      const fileName = resume.file_url.split('/').pop();
+      await supabase
+        .storage
+        .from('resumes')
+        .remove([fileName]);
     }
     
-    await Resume.findByIdAndDelete(req.params.id);
+    // Delete the resume from the database
+    const { error: deleteError } = await supabase
+      .from('resumes')
+      .delete()
+      .eq('id', req.params.id);
+      
+    if (deleteError) throw deleteError;
     
     // Re-rank remaining resumes
-    const remainingResumes = await Resume.find({ jobId: resume.jobId })
-      .sort({ overallScore: -1 });
+    const { data: remainingResumes, error: rankingError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('job_id', resume.job_id)
+      .order('overall_score', { ascending: false });
       
+    if (rankingError) throw rankingError;
+    
+    // Update ranks
     for (let i = 0; i < remainingResumes.length; i++) {
-      await Resume.findByIdAndUpdate(remainingResumes[i]._id, { rank: i + 1 });
+      await supabase
+        .from('resumes')
+        .update({ rank: i + 1 })
+        .eq('id', remainingResumes[i].id);
     }
     
     res.status(200).json({ message: 'Resume deleted successfully' });
   } catch (error) {
+    console.error('Error deleting resume:', error);
     res.status(500).json({ message: 'Error deleting resume', error: error.message });
   }
 });

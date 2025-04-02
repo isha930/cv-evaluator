@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,15 +10,14 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Upload, FileText, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { uploadMultipleResumes } from "@/lib/supabase";
+import { uploadResume } from "@/lib/api";
 
 const UploadForm: React.FC = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
-  const [skillsWeight, setSkillsWeight] = useState(33);
-  const [experienceWeight, setExperienceWeight] = useState(33);
-  const [educationWeight, setEducationWeight] = useState(34);
+  const [skillsWeight, setSkillsWeight] = useState(50);
+  const [experienceWeight, setExperienceWeight] = useState(50);
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -88,37 +88,71 @@ const UploadForm: React.FC = () => {
     setIsUploading(true);
     
     try {
-      const jobData = {
-        jobTitle,
-        jobDescription,
-        skillsWeight,
-        experienceWeight,
-        educationWeight
-      };
+      // Create job first
+      const jobResponse = await fetch('http://localhost:5000/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: jobTitle,
+          description: jobDescription,
+          skillsWeight,
+          experienceWeight
+        }),
+      });
       
-      const { results, errors } = await uploadMultipleResumes(files, userId, jobData);
-      
-      if (errors && errors.length > 0) {
-        errors.forEach(err => {
-          toast.error(`Error uploading ${err.file}: ${err.error.message}`);
-        });
+      if (!jobResponse.ok) {
+        throw new Error('Error creating job');
       }
       
-      if (results && results.length > 0) {
-        toast.success(`${results.length} resume(s) uploaded successfully`);
+      const jobData = await jobResponse.json();
+      const jobId = jobData.job.id;
+      
+      // Upload each resume
+      let successCount = 0;
+      
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('resume', file);
+        formData.append('jobId', jobId);
         
-        // Reset form
+        const resumeResponse = await fetch('http://localhost:5000/api/resumes/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (resumeResponse.ok) {
+          successCount++;
+        } else {
+          console.error(`Failed to upload ${file.name}`);
+        }
+      }
+      
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} resume(s)`);
         setFiles([]);
         setJobTitle('');
         setJobDescription('');
       } else {
-        toast.error('No resumes were uploaded successfully');
+        toast.error('Failed to upload any resumes');
       }
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('An error occurred during upload');
     } finally {
       setIsUploading(false);
+    }
+  };
+  
+  // Handle complementary weight change
+  const handleWeightChange = (type: 'skills' | 'experience', value: number) => {
+    if (type === 'skills') {
+      setSkillsWeight(value);
+      setExperienceWeight(100 - value);
+    } else {
+      setExperienceWeight(value);
+      setSkillsWeight(100 - value);
     }
   };
   
@@ -270,15 +304,7 @@ const UploadForm: React.FC = () => {
               min={0} 
               max={100} 
               step={1}
-              onValueChange={(value) => {
-                const newValue = value[0];
-                setSkillsWeight(newValue);
-                // Adjust other sliders to maintain 100% total
-                const remaining = 100 - newValue;
-                const ratio = remaining / (experienceWeight + educationWeight);
-                setExperienceWeight(Math.round(experienceWeight * ratio));
-                setEducationWeight(100 - newValue - Math.round(experienceWeight * ratio));
-              }}
+              onValueChange={(value) => handleWeightChange('skills', value[0])}
             />
           </div>
           
@@ -293,38 +319,7 @@ const UploadForm: React.FC = () => {
               min={0} 
               max={100} 
               step={1}
-              onValueChange={(value) => {
-                const newValue = value[0];
-                setExperienceWeight(newValue);
-                // Adjust other sliders to maintain 100% total
-                const remaining = 100 - newValue;
-                const ratio = remaining / (skillsWeight + educationWeight);
-                setSkillsWeight(Math.round(skillsWeight * ratio));
-                setEducationWeight(100 - newValue - Math.round(skillsWeight * ratio));
-              }}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="educationWeight">Education</Label>
-              <span className="text-sm font-medium">{educationWeight}%</span>
-            </div>
-            <Slider 
-              id="educationWeight" 
-              value={[educationWeight]} 
-              min={0} 
-              max={100} 
-              step={1}
-              onValueChange={(value) => {
-                const newValue = value[0];
-                setEducationWeight(newValue);
-                // Adjust other sliders to maintain 100% total
-                const remaining = 100 - newValue;
-                const ratio = remaining / (skillsWeight + experienceWeight);
-                setSkillsWeight(Math.round(skillsWeight * ratio));
-                setExperienceWeight(100 - newValue - Math.round(skillsWeight * ratio));
-              }}
+              onValueChange={(value) => handleWeightChange('experience', value[0])}
             />
           </div>
           
@@ -344,13 +339,6 @@ const UploadForm: React.FC = () => {
                   color: 'hsl(142, 71%, 45%)'
                 }}
               />
-              <div 
-                className="absolute inset-0 bg-amber-500 rounded-full"
-                style={{ 
-                  clipPath: `conic-gradient(from ${(skillsWeight + experienceWeight) * 3.6}deg, transparent ${100 - educationWeight}%, currentColor 0)`,
-                  color: 'hsl(45, 93%, 47%)'
-                }}
-              />
               <div className="absolute inset-4 bg-background rounded-full flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-xs text-muted-foreground">Total</div>
@@ -368,10 +356,6 @@ const UploadForm: React.FC = () => {
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
               <span>Experience</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-amber-500 mr-1"></div>
-              <span>Education</span>
             </div>
           </div>
         </CardContent>
