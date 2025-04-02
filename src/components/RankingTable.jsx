@@ -79,12 +79,6 @@ const RankingTable = ({
             </TableHead>
             <TableHead 
               className="cursor-pointer w-[180px]"
-              onClick={() => requestSort('educationScore')}
-            >
-              Education {sortConfig.key === 'educationScore' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer w-[180px]"
               onClick={() => requestSort('overallScore')}
             >
               Overall {sortConfig.key === 'overallScore' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
@@ -94,7 +88,7 @@ const RankingTable = ({
         </TableHeader>
         <TableBody>
           {sortedResumes.map((resume) => (
-            <TableRow key={resume.id} className="hover:bg-muted/50 transition-colors">
+            <TableRow key={resume._id} className="hover:bg-muted/50 transition-colors">
               <TableCell className="font-medium">{resume.rank}</TableCell>
               <TableCell>{resume.name}</TableCell>
               <TableCell>{resume.position}</TableCell>
@@ -112,25 +106,19 @@ const RankingTable = ({
               </TableCell>
               <TableCell>
                 <div className="flex items-center">
-                  <Progress value={resume.educationScore} className={cn("h-2 flex-1 mr-2", scoreToColor(resume.educationScore))} />
-                  <span className="text-sm">{resume.educationScore}%</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center">
                   <Progress value={resume.overallScore} className={cn("h-2 flex-1 mr-2", scoreToColor(resume.overallScore))} />
                   <span className="text-sm">{resume.overallScore}%</span>
                 </div>
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end space-x-1">
-                  <Button variant="outline" size="icon" onClick={() => onRankUp(resume.id)} disabled={resume.rank <= 1}>
+                  <Button variant="outline" size="icon" onClick={() => onRankUp(resume._id)} disabled={resume.rank <= 1}>
                     <ArrowUp className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => onView(resume.id)}>
+                  <Button variant="outline" size="icon" onClick={() => onView(resume._id)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => onRankDown(resume.id)}>
+                  <Button variant="outline" size="icon" onClick={() => onRankDown(resume._id)}>
                     <ArrowDown className="h-4 w-4" />
                   </Button>
                 </div>
