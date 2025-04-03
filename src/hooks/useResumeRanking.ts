@@ -136,7 +136,6 @@ export const useResumeRanking = (jobId: string | null) => {
       position: resume.position,
       skillScore: resume.skill_score,
       experienceScore: resume.experience_score,
-      educationScore: 0, // Since we're removing education, set to 0
       overallScore: resume.overall_score,
       rank: resume.rank
     };

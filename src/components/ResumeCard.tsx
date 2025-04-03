@@ -4,7 +4,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowUp, ArrowDown, Eye, User, Briefcase, GraduationCap } from "lucide-react";
+import { ArrowUp, ArrowDown, Eye, User, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ResumeData {
@@ -13,7 +13,6 @@ export interface ResumeData {
   position: string;
   skillScore: number;
   experienceScore: number;
-  educationScore: number;
   overallScore: number;
   rank: number;
 }
@@ -81,14 +80,6 @@ const ResumeCard: React.FC<ResumeCardProps> = ({
                 <span>{resume.experienceScore}%</span>
               </div>
               <Progress value={resume.experienceScore} className={cn("h-2", scoreToColor(resume.experienceScore))} />
-            </div>
-            
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center"><GraduationCap className="h-3 w-3 mr-1" />Education</span>
-                <span>{resume.educationScore}%</span>
-              </div>
-              <Progress value={resume.educationScore} className={cn("h-2", scoreToColor(resume.educationScore))} />
             </div>
             
             <div className="space-y-1 pt-2">
