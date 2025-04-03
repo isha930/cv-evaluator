@@ -1,18 +1,19 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Upload, FileText, Save, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { uploadResume } from "@/lib/api";
+import { createJob, uploadResume } from "@/lib/api";
 
 const UploadForm: React.FC = () => {
+  const navigate = useNavigate();
   const [files, setFiles] = useState<File[]>([]);
   const [jobTitle, setJobTitle] = useState('');
   const [jobDescription, setJobDescription] = useState('');
@@ -20,9 +21,7 @@ const UploadForm: React.FC = () => {
   const [experienceWeight, setExperienceWeight] = useState(50);
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
-  // Since we removed the auth context, we'll use a placeholder user ID
-  const userId = 'anonymous';
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -75,86 +74,82 @@ const UploadForm: React.FC = () => {
     e.preventDefault();
     
     // Validate form
-    if (files.length === 0) {
-      toast.error('Please upload at least one resume');
+    if (!jobTitle.trim()) {
+      toast.error('Please enter a job title');
       return;
     }
     
-    if (!jobTitle.trim()) {
-      toast.error('Please enter a job title');
+    if (!jobDescription.trim()) {
+      toast.error('Please enter a job description');
+      return;
+    }
+    
+    if (files.length === 0) {
+      toast.error('Please upload at least one resume');
       return;
     }
     
     setIsUploading(true);
     
     try {
-      // Create job first
-      const jobResponse = await fetch('http://localhost:5000/api/jobs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title: jobTitle,
-          description: jobDescription,
-          skillsWeight,
-          experienceWeight
-        }),
-      });
+      // First, create the job
+      const jobData = {
+        title: jobTitle,
+        description: jobDescription,
+        skillsWeight,
+        experienceWeight
+      };
       
-      if (!jobResponse.ok) {
-        throw new Error('Error creating job');
+      let jobId = currentJobId;
+      
+      if (!jobId) {
+        const jobResult = await createJob(jobData);
+        jobId = jobResult.job.id;
+        setCurrentJobId(jobId);
       }
       
-      const jobData = await jobResponse.json();
-      const jobId = jobData.job.id;
-      
-      // Upload each resume
+      // Then upload each resume
       let successCount = 0;
+      let errorCount = 0;
       
       for (const file of files) {
         const formData = new FormData();
         formData.append('resume', file);
         formData.append('jobId', jobId);
         
-        const resumeResponse = await fetch('http://localhost:5000/api/resumes/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (resumeResponse.ok) {
+        try {
+          await uploadResume(formData);
           successCount++;
-        } else {
-          console.error(`Failed to upload ${file.name}`);
+        } catch (err) {
+          console.error('Error uploading resume:', err);
+          errorCount++;
         }
       }
       
       if (successCount > 0) {
-        toast.success(`Successfully uploaded ${successCount} resume(s)`);
+        toast.success(`${successCount} resume(s) uploaded and analyzed successfully`);
+        
+        // Reset form or navigate to results
         setFiles([]);
-        setJobTitle('');
-        setJobDescription('');
-      } else {
-        toast.error('Failed to upload any resumes');
+        navigate(`/ranking?jobId=${jobId}`);
       }
+      
+      if (errorCount > 0) {
+        toast.error(`${errorCount} resume(s) failed to upload`);
+      }
+      
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('An error occurred during upload');
+      toast.error(`An error occurred: ${error.message || 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
   };
   
-  // Handle complementary weight change
-  const handleWeightChange = (type: 'skills' | 'experience', value: number) => {
-    if (type === 'skills') {
-      setSkillsWeight(value);
-      setExperienceWeight(100 - value);
-    } else {
-      setExperienceWeight(value);
-      setSkillsWeight(100 - value);
-    }
-  };
+  // Update experienceWeight when skillsWeight changes to maintain 100% total
+  useEffect(() => {
+    setExperienceWeight(100 - skillsWeight);
+  }, [skillsWeight]);
   
   return (
     <form onSubmit={handleSubmit} className="space-y-8 w-full max-w-2xl mx-auto fade-in">
@@ -183,6 +178,7 @@ const UploadForm: React.FC = () => {
               className="min-h-[120px]"
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
+              required
             />
           </div>
         </CardContent>
@@ -290,7 +286,7 @@ const UploadForm: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Ranking Criteria</CardTitle>
-          <CardDescription>Adjust the weights for each evaluation category</CardDescription>
+          <CardDescription>Adjust the weights for evaluation categories</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -304,7 +300,9 @@ const UploadForm: React.FC = () => {
               min={0} 
               max={100} 
               step={1}
-              onValueChange={(value) => handleWeightChange('skills', value[0])}
+              onValueChange={(value) => {
+                setSkillsWeight(value[0]);
+              }}
             />
           </div>
           
@@ -319,7 +317,7 @@ const UploadForm: React.FC = () => {
               min={0} 
               max={100} 
               step={1}
-              onValueChange={(value) => handleWeightChange('experience', value[0])}
+              disabled
             />
           </div>
           
