@@ -201,7 +201,7 @@ const Reports = () => {
                 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Qualified (>70%)</CardTitle>
+                    <CardTitle className="text-base">Qualified (&gt;70%)</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold">
@@ -411,7 +411,7 @@ const Reports = () => {
                       
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Candidates with Skills Score > 70%</span>
+                          <span>Candidates with Skills Score &gt; 70%</span>
                           <span className="font-medium">{resumes.filter(r => r.skillScore > 70).length} ({Math.round((resumes.filter(r => r.skillScore > 70).length / resumes.length) * 100)}%)</span>
                         </div>
                       </div>
@@ -538,7 +538,7 @@ const Reports = () => {
                       
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Candidates with Experience Score > 70%</span>
+                          <span>Candidates with Experience Score &gt; 70%</span>
                           <span className="font-medium">{resumes.filter(r => r.experienceScore > 70).length} ({Math.round((resumes.filter(r => r.experienceScore > 70).length / resumes.length) * 100)}%)</span>
                         </div>
                       </div>
