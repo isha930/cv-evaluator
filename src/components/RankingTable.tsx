@@ -87,12 +87,6 @@ const RankingTable: React.FC<RankingTableProps> = ({
             </TableHead>
             <TableHead 
               className="cursor-pointer w-[180px]"
-              onClick={() => requestSort('educationScore')}
-            >
-              Education {sortConfig.key === 'educationScore' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer w-[180px]"
               onClick={() => requestSort('overallScore')}
             >
               Overall {sortConfig.key === 'overallScore' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
@@ -116,12 +110,6 @@ const RankingTable: React.FC<RankingTableProps> = ({
                 <div className="flex items-center">
                   <Progress value={resume.experienceScore} className={cn("h-2 flex-1 mr-2", scoreToColor(resume.experienceScore))} />
                   <span className="text-sm">{resume.experienceScore}%</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center">
-                  <Progress value={resume.educationScore} className={cn("h-2 flex-1 mr-2", scoreToColor(resume.educationScore))} />
-                  <span className="text-sm">{resume.educationScore}%</span>
                 </div>
               </TableCell>
               <TableCell>
