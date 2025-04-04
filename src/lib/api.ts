@@ -196,6 +196,7 @@ export const updateResumeRankDirect = async (reportId: string, newRank: number) 
   }
 };
 
+// Add the missing getResumeStats function
 export const getResumeStats = async (jobId: string) => {
   try {
     // Get reports for this resume
