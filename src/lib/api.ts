@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -195,7 +196,7 @@ export const updateResumeRankDirect = async (reportId: string, newRank: number) 
   }
 };
 
-// Add the missing getResumeStats function
+// Add the getResumeStats function
 export const getResumeStats = async (jobId: string) => {
   try {
     // Get reports for this resume
