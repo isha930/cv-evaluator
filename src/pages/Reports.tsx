@@ -28,7 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { toast } from "sonner";
-import { getJobs, getResumesByJobId, getResumeStats } from "@/lib/api";
+import { getJobs, getResumesByJobId } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Reports = () => {
@@ -78,9 +78,27 @@ const Reports = () => {
         const resumesData = await getResumesByJobId(selectedJobId);
         setResumes(resumesData);
         
-        // Fetch statistics
-        const statsData = await getResumeStats(selectedJobId);
-        setStats(statsData);
+        // Calculate statistics
+        if (resumesData.length > 0) {
+          const totalCount = resumesData.length;
+          const avgSkillScore = Math.round(resumesData.reduce((acc, r) => acc + r.skill_score, 0) / totalCount);
+          const avgExpScore = Math.round(resumesData.reduce((acc, r) => acc + r.experience_score, 0) / totalCount);
+          const avgOverallScore = Math.round(resumesData.reduce((acc, r) => acc + r.overall_score, 0) / totalCount);
+          
+          const highScoreCandidates = resumesData.filter(r => r.overall_score >= 80).length;
+          const mediumScoreCandidates = resumesData.filter(r => r.overall_score >= 60 && r.overall_score < 80).length;
+          const lowScoreCandidates = resumesData.filter(r => r.overall_score < 60).length;
+          
+          setStats({
+            totalCount,
+            avgSkillScore,
+            avgExpScore,
+            avgOverallScore,
+            highScoreCandidates,
+            mediumScoreCandidates,
+            lowScoreCandidates
+          });
+        }
       } catch (error) {
         console.error("Error fetching resumes or stats:", error);
       } finally {

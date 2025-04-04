@@ -19,7 +19,6 @@ import {
   ChevronRight,
   BarChart,
   Briefcase,
-  GraduationCap,
   Award,
 } from "lucide-react";
 import {
@@ -46,7 +45,6 @@ const candidateData = [
 const generateComparisonData = (candidate1: string, candidate2: string) => [
   { category: "Technical Skills", candidate1: 85, candidate2: 78 },
   { category: "Experience", candidate1: 92, candidate2: 65 },
-  { category: "Education", candidate1: 75, candidate2: 88 },
   { category: "Communication", candidate1: 80, candidate2: 90 },
   { category: "Problem Solving", candidate1: 88, candidate2: 72 },
 ];
@@ -124,7 +122,7 @@ const CandidateComparison = () => {
         <div className="mt-4">
           <h3 className="text-lg font-medium mb-4">Comparison Results</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="flex flex-col items-center p-4 bg-muted/30 rounded-lg">
               <Briefcase className="h-10 w-10 text-primary mb-2" />
               <span className="text-sm text-muted-foreground">Experience</span>
@@ -135,21 +133,6 @@ const CandidateComparison = () => {
                 </div>
                 <div className="text-center">
                   <span className="text-lg font-bold">5 yrs</span>
-                  <p className="text-xs text-muted-foreground">{getCandidateName(candidate2)}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col items-center p-4 bg-muted/30 rounded-lg">
-              <GraduationCap className="h-10 w-10 text-primary mb-2" />
-              <span className="text-sm text-muted-foreground">Education</span>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="text-center">
-                  <span className="text-lg font-bold">Master's</span>
-                  <p className="text-xs text-muted-foreground">{getCandidateName(candidate1)}</p>
-                </div>
-                <div className="text-center">
-                  <span className="text-lg font-bold">Bachelor's</span>
                   <p className="text-xs text-muted-foreground">{getCandidateName(candidate2)}</p>
                 </div>
               </div>
