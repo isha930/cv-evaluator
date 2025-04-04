@@ -9,72 +9,95 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      jobs: {
+      reports: {
         Row: {
-          created_at: string
-          description: string | null
+          candidate_rank: number | null
+          created_at: string | null
+          employee_name: string
+          experience_description: string
+          experience_percentage: number
           id: string
-          title: string
-          updated_at: string
-          user_id: string
+          overall_score: number
+          position: string
+          resume_details: string | null
+          resume_id: string
+          skill_description: string
+          skill_percentage: number
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
-          description?: string | null
+          candidate_rank?: number | null
+          created_at?: string | null
+          employee_name?: string
+          experience_description?: string
+          experience_percentage?: number
           id?: string
-          title: string
-          updated_at?: string
-          user_id: string
+          overall_score?: number
+          position?: string
+          resume_details?: string | null
+          resume_id: string
+          skill_description?: string
+          skill_percentage?: number
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
-          description?: string | null
+          candidate_rank?: number | null
+          created_at?: string | null
+          employee_name?: string
+          experience_description?: string
+          experience_percentage?: number
           id?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
+          overall_score?: number
+          position?: string
+          resume_details?: string | null
+          resume_id?: string
+          skill_description?: string
+          skill_percentage?: number
+          updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_reports_resume"
+            columns: ["resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resumes: {
         Row: {
           created_at: string
-          education_weight: number | null
           experience_weight: number | null
           file_name: string
           file_url: string
           id: string
           job_description: string | null
           job_title: string | null
-          rank: number | null
           skills_weight: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          education_weight?: number | null
-          experience_weight?: number | null
-          file_name: string
-          file_url: string
-          id?: string
-          job_description?: string | null
-          job_title?: string | null
-          rank?: number | null
-          skills_weight?: number | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          education_weight?: number | null
           experience_weight?: number | null
           file_name?: string
           file_url?: string
           id?: string
           job_description?: string | null
           job_title?: string | null
-          rank?: number | null
+          skills_weight?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          experience_weight?: number | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
           skills_weight?: number | null
           updated_at?: string
           user_id?: string
