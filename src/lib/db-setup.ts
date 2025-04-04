@@ -1,52 +1,39 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from '@supabase/supabase-js';
 
-export const setupDemoData = async () => {
-  try {
-    // First, sign up a demo user if not exists
-    const { data: { user }, error: signUpError } = await supabase.auth.signUp({
-      email: 'demo@resumeanalyzer.com',
-      password: 'DemoUser2024!',
-    });
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    if (signUpError && signUpError.message !== 'User already exists') {
-      console.error('Error signing up demo user:', signUpError);
-      throw signUpError;
-    }
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase credentials. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
+}
 
-    // If user exists, retrieve the user ID
-    const userId = user?.id || '';
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Add jobs associated with this user
-    const { data: jobsData, error: jobsError } = await supabase
-      .from('jobs')
-      .insert([
-        {
-          title: 'Frontend Developer', 
-          description: 'We are looking for a skilled frontend developer proficient in React, TypeScript, and responsive design.',
-          user_id: userId
-        },
-        {
-          title: 'Backend Engineer', 
-          description: 'Looking for a backend engineer with experience in Node.js, Express, and database design.',
-          user_id: userId
-        },
-        {
-          title: 'Full Stack Developer', 
-          description: 'We need a full stack developer with knowledge of both frontend and backend technologies.',
-          user_id: userId
-        }
-      ]);
+// Example of creating a job - using the new database tables structure
+export const createJob = async (jobData) => {
+  const { data, error } = await supabase
+    .from('resumes')
+    .insert({
+      job_title: jobData.title,
+      job_description: jobData.description, 
+      skills_weight: jobData.skillsWeight,
+      experience_weight: jobData.experienceWeight,
+      user_id: '00000000-0000-0000-0000-000000000000' // Default user ID for demo purposes
+    })
+    .select();
+  
+  if (error) throw error;
+  return data;
+};
 
-    if (jobsError) {
-      console.error('Error inserting jobs:', jobsError);
-      throw jobsError;
-    }
-
-    console.log('Demo data setup complete');
-    return { user, jobs: jobsData };
-  } catch (error) {
-    console.error('Error in setupDemoData:', error);
-    throw error;
-  }
+// Example of fetching jobs
+export const getJobs = async () => {
+  const { data, error } = await supabase
+    .from('resumes')
+    .select('*');
+  
+  if (error) throw error;
+  return data;
 };
