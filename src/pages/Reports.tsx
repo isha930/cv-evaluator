@@ -387,7 +387,7 @@ const Reports = () => {
                       
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Candidates with Skills Score &gt; 70%</span>
+                          <span>Candidates with Skills Score &gt;70%</span>
                           <span className="font-medium">{resumes.filter(r => r.skill_score > 70).length} ({Math.round((resumes.filter(r => r.skill_score > 70).length / resumes.length) * 100)}%)</span>
                         </div>
                       </div>
@@ -494,7 +494,7 @@ const Reports = () => {
                       
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Candidates with Experience Score &gt; 70%</span>
+                          <span>Candidates with Experience Score &gt;70%</span>
                           <span className="font-medium">{resumes.filter(r => r.experience_score > 70).length} ({Math.round((resumes.filter(r => r.experience_score > 70).length / resumes.length) * 100)}%)</span>
                         </div>
                       </div>
