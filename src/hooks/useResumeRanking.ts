@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { getResumesByJobId, updateResumeRank, getJobById } from "@/lib/api";
 import { ResumeData } from "@/components/ResumeCard";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,9 +28,11 @@ export const useResumeRanking = (jobId: string | null) => {
   
   useEffect(() => {
     if (jobId) {
+      console.log('JobID provided, fetching data:', jobId);
       fetchResumes();
       fetchJobDetails();
     } else {
+      console.log('No JobID provided, skipping data fetch');
       setIsLoading(false);
     }
   }, [jobId]);
@@ -43,7 +44,8 @@ export const useResumeRanking = (jobId: string | null) => {
       console.log('Fetching resumes for job ID:', jobId);
       setIsLoading(true);
       
-      // Direct Supabase query to debug
+      // Direct Supabase query for reports
+      console.log('Querying reports table with resume_id =', jobId);
       const { data, error } = await supabase
         .from('reports')
         .select('*')
@@ -55,18 +57,19 @@ export const useResumeRanking = (jobId: string | null) => {
         throw error;
       }
       
-      console.log('Resume data fetched directly from Supabase:', data);
+      console.log('Resume data fetched:', data);
+      console.log('Number of reports found:', data?.length || 0);
       
       if (data && data.length > 0) {
         const formattedResumes: Resume[] = data.map(report => ({
           id: report.id,
-          name: report.employee_name,
-          position: report.position,
-          skill_score: Number(report.skill_percentage),
-          skill_description: report.skill_description,
-          experience_score: Number(report.experience_percentage),
-          experience_description: report.experience_description,
-          overall_score: Number(report.overall_score),
+          name: report.employee_name || 'Unnamed Candidate',
+          position: report.position || 'Unknown Position',
+          skill_score: Number(report.skill_percentage) || 0,
+          skill_description: report.skill_description || '',
+          experience_score: Number(report.experience_percentage) || 0,
+          experience_description: report.experience_description || '',
+          overall_score: Number(report.overall_score) || 0,
           summary: report.resume_details || '',
           rank: report.candidate_rank || 0
         }));
@@ -92,23 +95,24 @@ export const useResumeRanking = (jobId: string | null) => {
     try {
       console.log('Fetching job details for ID:', jobId);
       
-      // Direct Supabase query to debug
+      // Direct Supabase query
       const { data, error } = await supabase
         .from('resumes')
-        .select('*')
+        .select('job_title')
         .eq('id', jobId)
-        .single();
+        .maybeSingle();
         
       if (error) {
         console.error("Supabase job query error:", error);
         throw error;
       }
       
-      console.log('Job details fetched from Supabase:', data);
+      console.log('Job details fetched:', data);
       
-      if (data) {
-        setJobTitle(data.job_title || 'Unknown Job');
+      if (data && data.job_title) {
+        setJobTitle(data.job_title);
       } else {
+        console.log('No job title found, setting default');
         setJobTitle('Job Details Not Available');
       }
     } catch (error) {
@@ -228,6 +232,7 @@ export const useResumeRanking = (jobId: string | null) => {
       totalCandidates: resumes.length,
       averageScore: getAverageScore(),
       topPerformer: resumes.length > 0 ? resumes[0]?.name || 'None' : 'None'
-    }
+    },
+    fetchResumes // Export the function to allow manual refetching
   };
 };
