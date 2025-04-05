@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const { supabase } = require('../index');
-const { formatResumeForResponse, getResumeInsertData } = require('../models/Resume');
+const { formatResumeForResponse, getResumeInsertData, formatReportForResponse, getReportInsertData } = require('../models/Resume');
 
 // Configure multer for PDF file uploads
 const storage = multer.diskStorage({
@@ -156,20 +156,22 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
     }
     
     const { jobId, candidateName, position } = req.body;
+    const skillsWeight = parseInt(req.body.skillsWeight) || 50;
+    const experienceWeight = parseInt(req.body.experienceWeight) || 50;
     
     if (!jobId) {
       return res.status(400).json({ message: 'Job ID is required' });
     }
     
-    // Get the job details
-    const { data: job, error: jobError } = await supabase
-      .from('jobs')
+    // Get the job details from the resumes table
+    const { data: resume, error: resumeError } = await supabase
+      .from('resumes')
       .select('*')
       .eq('id', jobId)
       .single();
       
-    if (jobError) {
-      return res.status(404).json({ message: 'Job not found' });
+    if (resumeError) {
+      return res.status(404).json({ message: 'Job details not found' });
     }
     
     // Read the PDF file
@@ -178,9 +180,9 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
     // Analyze the resume
     const analysisResult = await analyzeResume(
       pdfBuffer, 
-      job.description, 
-      job.skills_weight, 
-      job.experience_weight
+      resume.job_description, 
+      skillsWeight, 
+      experienceWeight
     );
     
     // Upload file to Supabase Storage
@@ -211,70 +213,46 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
       
     const publicUrl = publicUrlData.publicUrl;
     
-    // Create the resume record with complete data
-    const resumeData = getResumeInsertData({
+    // Count existing reports to determine rank
+    const { count, error: countError } = await supabase
+      .from('reports')
+      .select('*', { count: 'exact' })
+      .eq('resume_id', jobId);
+      
+    if (countError) {
+      console.error('Count error:', countError);
+      throw countError;
+    }
+    
+    // Create the report record
+    const reportData = getReportInsertData({
+      resumeId: jobId,
       name: candidateName || analysisResult.name,
       position: position || analysisResult.position,
-      filePath: filePath,
-      fileName: req.file.originalname,
-      fileUrl: publicUrl,
       skillScore: analysisResult.skillScore,
       skillDescription: analysisResult.skillDescription,
       experienceScore: analysisResult.experienceScore,
       experienceDescription: analysisResult.experienceDescription,
       overallScore: analysisResult.overallScore,
       summary: analysisResult.summary,
-      jobId: job.id,
-      rank: 0  // Will update this after inserting
+      rank: count + 1  // New report gets next rank
     });
     
-    // Insert the resume data
-    const { data: resume, error: insertError } = await supabase
-      .from('resumes')
-      .insert([resumeData])
+    // Insert the report data
+    const { data: report, error: insertError } = await supabase
+      .from('reports')
+      .insert([reportData])
       .select()
       .single();
       
     if (insertError) {
       console.error('Insert error:', insertError);
-      return res.status(500).json({ message: 'Error saving resume data', error: insertError.message });
-    }
-    
-    // Update ranks for all resumes of this job
-    const { data: allResumes, error: rankingError } = await supabase
-      .from('resumes')
-      .select('*')
-      .eq('job_id', job.id)
-      .order('overall_score', { ascending: false });
-      
-    if (rankingError) {
-      console.error('Ranking error:', rankingError);
-      return res.status(500).json({ message: 'Error updating resume ranks', error: rankingError.message });
-    }
-    
-    // Update each resume's rank
-    for (let i = 0; i < allResumes.length; i++) {
-      await supabase
-        .from('resumes')
-        .update({ rank: i + 1 })
-        .eq('id', allResumes[i].id);
-    }
-    
-    // Get the updated resume record with the correct rank
-    const { data: updatedResume, error: fetchError } = await supabase
-      .from('resumes')
-      .select('*')
-      .eq('id', resume.id)
-      .single();
-      
-    if (fetchError) {
-      console.error('Fetch error:', fetchError);
-      return res.status(500).json({ message: 'Error fetching updated resume', error: fetchError.message });
+      return res.status(500).json({ message: 'Error saving report data', error: insertError.message });
     }
     
     res.status(201).json({
       message: 'Resume uploaded and analyzed successfully',
-      resume: formatResumeForResponse(updatedResume)
+      report: formatReportForResponse(report)
     });
   } catch (error) {
     console.error('Error uploading resume:', error);
@@ -282,100 +260,100 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
   }
 });
 
-// Get all resumes for a specific job
+// Get all reports for a specific job (resume)
 router.get('/job/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
     
-    const { data: resumes, error } = await supabase
-      .from('resumes')
+    const { data: reports, error } = await supabase
+      .from('reports')
       .select('*')
-      .eq('job_id', jobId)
-      .order('rank', { ascending: true });
+      .eq('resume_id', jobId)
+      .order('candidate_rank', { ascending: true });
       
     if (error) throw error;
     
-    res.status(200).json(resumes.map(resume => formatResumeForResponse(resume)));
+    res.status(200).json(reports.map(report => formatReportForResponse(report)));
   } catch (error) {
-    console.error('Error fetching resumes:', error);
-    res.status(500).json({ message: 'Error fetching resumes', error: error.message });
+    console.error('Error fetching reports:', error);
+    res.status(500).json({ message: 'Error fetching candidate reports', error: error.message });
   }
 });
 
-// Get a specific resume
+// Get a specific report
 router.get('/:id', async (req, res) => {
   try {
-    const { data: resume, error } = await supabase
-      .from('resumes')
+    const { data: report, error } = await supabase
+      .from('reports')
       .select('*')
       .eq('id', req.params.id)
       .single();
       
     if (error) {
       if (error.code === 'PGRST116') {
-        return res.status(404).json({ message: 'Resume not found' });
+        return res.status(404).json({ message: 'Report not found' });
       }
       throw error;
     }
     
-    res.status(200).json(formatResumeForResponse(resume));
+    res.status(200).json(formatReportForResponse(report));
   } catch (error) {
-    console.error('Error fetching resume:', error);
-    res.status(500).json({ message: 'Error fetching resume', error: error.message });
+    console.error('Error fetching report:', error);
+    res.status(500).json({ message: 'Error fetching report', error: error.message });
   }
 });
 
-// Update resume ranking
+// Update report ranking
 router.put('/rank/:id/:direction', async (req, res) => {
   try {
     const { id, direction } = req.params;
     
-    // Get the current resume
-    const { data: resume, error: fetchError } = await supabase
-      .from('resumes')
+    // Get the current report
+    const { data: report, error: fetchError } = await supabase
+      .from('reports')
       .select('*')
       .eq('id', id)
       .single();
       
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return res.status(404).json({ message: 'Resume not found' });
+        return res.status(404).json({ message: 'Report not found' });
       }
       throw fetchError;
     }
     
-    const currentRank = resume.rank;
+    const currentRank = report.candidate_rank;
     const newRank = direction === 'up' ? currentRank - 1 : currentRank + 1;
     
     if (newRank < 1) {
       return res.status(400).json({ message: 'Cannot move higher than rank 1' });
     }
     
-    // Find resume with the target rank
-    const { data: targetResumes, error: targetError } = await supabase
-      .from('resumes')
+    // Find report with the target rank
+    const { data: targetReports, error: targetError } = await supabase
+      .from('reports')
       .select('*')
-      .eq('job_id', resume.job_id)
-      .eq('rank', newRank);
+      .eq('resume_id', report.resume_id)
+      .eq('candidate_rank', newRank);
       
     if (targetError) throw targetError;
     
-    if (targetResumes && targetResumes.length > 0) {
-      const targetResume = targetResumes[0];
+    if (targetReports && targetReports.length > 0) {
+      const targetReport = targetReports[0];
       
-      // Swap ranks (update target resume's rank)
+      // Swap ranks (update target report's rank)
       const { error: swapError } = await supabase
-        .from('resumes')
-        .update({ rank: currentRank })
-        .eq('id', targetResume.id);
+        .from('reports')
+        .update({ candidate_rank: currentRank })
+        .eq('id', targetReport.id);
         
       if (swapError) throw swapError;
     }
     
-    // Update current resume's rank
-    const { data: updatedResume, error: updateError } = await supabase
-      .from('resumes')
-      .update({ rank: newRank })
+    // Update current report's rank
+    const { data: updatedReport, error: updateError } = await supabase
+      .from('reports')
+      .update({ candidate_rank: newRank })
       .eq('id', id)
       .select()
       .single();
@@ -384,7 +362,7 @@ router.put('/rank/:id/:direction', async (req, res) => {
     
     res.status(200).json({ 
       message: 'Rank updated successfully', 
-      resume: formatResumeForResponse(updatedResume) 
+      report: formatReportForResponse(updatedReport) 
     });
   } catch (error) {
     console.error('Error updating rank:', error);
@@ -392,61 +370,52 @@ router.put('/rank/:id/:direction', async (req, res) => {
   }
 });
 
-// Delete a resume
+// Delete a report
 router.delete('/:id', async (req, res) => {
   try {
-    // Get the resume to delete
-    const { data: resume, error: fetchError } = await supabase
-      .from('resumes')
+    // Get the report to delete
+    const { data: report, error: fetchError } = await supabase
+      .from('reports')
       .select('*')
       .eq('id', req.params.id)
       .single();
       
     if (fetchError) {
       if (fetchError.code === 'PGRST116') {
-        return res.status(404).json({ message: 'Resume not found' });
+        return res.status(404).json({ message: 'Report not found' });
       }
       throw fetchError;
     }
     
-    // Delete the file from storage if it exists
-    if (resume.file_url) {
-      const fileName = resume.file_url.split('/').pop();
-      await supabase
-        .storage
-        .from('resumes')
-        .remove([fileName]);
-    }
-    
-    // Delete the resume from the database
+    // Delete the report from the database
     const { error: deleteError } = await supabase
-      .from('resumes')
+      .from('reports')
       .delete()
       .eq('id', req.params.id);
       
     if (deleteError) throw deleteError;
     
-    // Re-rank remaining resumes
-    const { data: remainingResumes, error: rankingError } = await supabase
-      .from('resumes')
+    // Re-rank remaining reports
+    const { data: remainingReports, error: rankingError } = await supabase
+      .from('reports')
       .select('*')
-      .eq('job_id', resume.job_id)
+      .eq('resume_id', report.resume_id)
       .order('overall_score', { ascending: false });
       
     if (rankingError) throw rankingError;
     
     // Update ranks
-    for (let i = 0; i < remainingResumes.length; i++) {
+    for (let i = 0; i < remainingReports.length; i++) {
       await supabase
-        .from('resumes')
-        .update({ rank: i + 1 })
-        .eq('id', remainingResumes[i].id);
+        .from('reports')
+        .update({ candidate_rank: i + 1 })
+        .eq('id', remainingReports[i].id);
     }
     
-    res.status(200).json({ message: 'Resume deleted successfully' });
+    res.status(200).json({ message: 'Report deleted successfully' });
   } catch (error) {
-    console.error('Error deleting resume:', error);
-    res.status(500).json({ message: 'Error deleting resume', error: error.message });
+    console.error('Error deleting report:', error);
+    res.status(500).json({ message: 'Error deleting report', error: error.message });
   }
 });
 

@@ -50,69 +50,7 @@ const upload = multer({
   }
 });
 
-// API Routes
-
-// Create a new job
-app.post('/api/jobs', async (req, res) => {
-  try {
-    const { title, description, skillsWeight, experienceWeight } = req.body;
-    
-    const { data: job, error } = await supabase
-      .from('jobs')
-      .insert([{
-        title,
-        description,
-        skills_weight: skillsWeight,
-        experience_weight: experienceWeight
-      }])
-      .select();
-      
-    if (error) throw error;
-    
-    res.status(201).json({ job: job[0] });
-  } catch (error) {
-    console.error('Error creating job:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get all jobs
-app.get('/api/jobs', async (req, res) => {
-  try {
-    const { data: jobs, error } = await supabase
-      .from('jobs')
-      .select('*')
-      .order('created_at', { ascending: false });
-      
-    if (error) throw error;
-    
-    res.status(200).json(jobs);
-  } catch (error) {
-    console.error('Error fetching jobs:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get job by ID
-app.get('/api/jobs/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const { data: job, error } = await supabase
-      .from('jobs')
-      .select('*')
-      .eq('id', id)
-      .single();
-      
-    if (error) throw error;
-    
-    res.status(200).json(job);
-  } catch (error) {
-    console.error('Error fetching job:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// API Routes for resumes
 // Upload and analyze resume
 app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
   try {
@@ -120,20 +58,22 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    const { jobId } = req.body;
+    const { jobId, skillsWeight, experienceWeight } = req.body;
     
     if (!jobId) {
       return res.status(400).json({ error: 'Job ID is required' });
     }
     
-    // Get job details to use for analysis
-    const { data: job, error: jobError } = await supabase
-      .from('jobs')
+    // Get the resume with job details
+    const { data: resume, error: resumeError } = await supabase
+      .from('resumes')
       .select('*')
       .eq('id', jobId)
       .single();
       
-    if (jobError) throw jobError;
+    if (resumeError) {
+      return res.status(404).json({ error: 'Job details not found' });
+    }
     
     // Extract resume info from PDF
     const dataBuffer = fs.readFileSync(req.file.path);
@@ -155,7 +95,7 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
       'MongoDB', 'PostgreSQL', 'MySQL', 'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes'
     ];
     
-    const jobSkills = job.description.match(new RegExp(skills.join('|'), 'gi')) || [];
+    const jobSkills = resume.job_description.match(new RegExp(skills.join('|'), 'gi')) || [];
     const resumeSkills = resumeText.match(new RegExp(skills.join('|'), 'gi')) || [];
     
     const matchedSkills = resumeSkills.filter(skill => 
@@ -182,24 +122,27 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
     const experienceScore = Math.min(100, Math.round((totalMonths / 60) * 100)); // Assuming 5 years (60 months) is ideal
     
     // Calculate overall score based on weights
+    const sw = parseInt(skillsWeight) || resume.skills_weight || 50;
+    const ew = parseInt(experienceWeight) || resume.experience_weight || 50;
+    
     const overallScore = Math.round(
-      (skillScore * (job.skills_weight / 100)) +
-      (experienceScore * (job.experience_weight / 100))
+      (skillScore * (sw / 100)) +
+      (experienceScore * (ew / 100))
     );
     
-    // Get current resumes to determine rank
-    const { data: resumes, error: resumesError } = await supabase
-      .from('resumes')
+    // Get current reports to determine rank
+    const { data: reports, error: reportsError } = await supabase
+      .from('reports')
       .select('id, overall_score')
-      .eq('job_id', jobId)
+      .eq('resume_id', jobId)
       .order('overall_score', { ascending: false });
       
-    if (resumesError) throw resumesError;
+    if (reportsError) throw reportsError;
     
     // Determine rank based on overall score
     let rank = 1;
-    if (resumes && resumes.length > 0) {
-      const higherScores = resumes.filter(r => r.overall_score > overallScore).length;
+    if (reports && reports.length > 0) {
+      const higherScores = reports.filter(r => r.overall_score > overallScore).length;
       rank = higherScores + 1;
     }
     
@@ -209,110 +152,107 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
     // Create file URL (in a real app, you'd store the file in cloud storage)
     const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     
-    // Save resume to database
-    const { data: savedResume, error: saveError } = await supabase
-      .from('resumes')
+    // Save to reports table
+    const { data: savedReport, error: saveError } = await supabase
+      .from('reports')
       .insert([{
-        name,
-        position,
-        file_path: req.file.path,
-        file_name: req.file.originalname,
-        file_url: fileUrl,
-        skill_score: skillScore,
+        resume_id: jobId,
+        employee_name: name,
+        position: position,
+        skill_percentage: skillScore,
         skill_description: `Matched ${matchedSkills.length} out of ${jobSkills.length} required skills.`,
-        experience_score: experienceScore,
+        experience_percentage: experienceScore,
         experience_description: `Approximately ${Math.round(totalMonths/12)} years of experience.`,
         overall_score: overallScore,
-        summary,
-        job_id: jobId,
-        rank
+        resume_details: summary,
+        candidate_rank: rank
       }])
       .select();
       
     if (saveError) throw saveError;
     
-    // Update ranks of other resumes if needed
-    if (rank <= resumes.length) {
-      for (const resume of resumes) {
-        if (resume.overall_score <= overallScore) {
+    // Update ranks of other reports if needed
+    if (rank <= reports.length) {
+      for (const report of reports) {
+        if (report.overall_score <= overallScore) {
           await supabase
-            .from('resumes')
-            .update({ rank: resume.rank + 1 })
-            .eq('id', resume.id);
+            .from('reports')
+            .update({ candidate_rank: report.rank + 1 })
+            .eq('id', report.id);
         }
       }
     }
     
-    res.status(201).json(savedResume[0]);
+    res.status(201).json(savedReport[0]);
   } catch (error) {
     console.error('Error uploading resume:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get resumes by job ID
+// Get reports by job ID (resume ID)
 app.get('/api/resumes/job/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
     
-    const { data: resumes, error } = await supabase
-      .from('resumes')
+    const { data: reports, error } = await supabase
+      .from('reports')
       .select('*')
-      .eq('job_id', jobId)
-      .order('rank', { ascending: true });
+      .eq('resume_id', jobId)
+      .order('candidate_rank', { ascending: true });
       
     if (error) throw error;
     
-    res.status(200).json(resumes);
+    res.status(200).json(reports);
   } catch (error) {
-    console.error('Error fetching resumes:', error);
+    console.error('Error fetching reports:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Update resume rank
+// Update report rank
 app.put('/api/resumes/rank/:id/:direction', async (req, res) => {
   try {
     const { id, direction } = req.params;
     
-    // Get the current resume
-    const { data: resume, error: resumeError } = await supabase
-      .from('resumes')
+    // Get the current report
+    const { data: report, error: reportError } = await supabase
+      .from('reports')
       .select('*')
       .eq('id', id)
       .single();
       
-    if (resumeError) throw resumeError;
+    if (reportError) throw reportError;
     
-    // Find the resume to swap ranks with
-    const { data: resumes, error: resumesError } = await supabase
-      .from('resumes')
+    // Find the report to swap ranks with
+    const { data: reports, error: reportsError } = await supabase
+      .from('reports')
       .select('*')
-      .eq('job_id', resume.job_id)
-      .order('rank', { ascending: true });
+      .eq('resume_id', report.resume_id)
+      .order('candidate_rank', { ascending: true });
       
-    if (resumesError) throw resumesError;
+    if (reportsError) throw reportsError;
     
-    let swapResume;
-    if (direction === 'up' && resume.rank > 1) {
-      swapResume = resumes.find(r => r.rank === resume.rank - 1);
-    } else if (direction === 'down' && resume.rank < resumes.length) {
-      swapResume = resumes.find(r => r.rank === resume.rank + 1);
+    let swapReport;
+    if (direction === 'up' && report.candidate_rank > 1) {
+      swapReport = reports.find(r => r.candidate_rank === report.candidate_rank - 1);
+    } else if (direction === 'down' && report.candidate_rank < reports.length) {
+      swapReport = reports.find(r => r.candidate_rank === report.candidate_rank + 1);
     }
     
-    if (swapResume) {
+    if (swapReport) {
       // Swap ranks
       const { error: updateError1 } = await supabase
-        .from('resumes')
-        .update({ rank: swapResume.rank })
-        .eq('id', resume.id);
+        .from('reports')
+        .update({ candidate_rank: swapReport.candidate_rank })
+        .eq('id', report.id);
         
       if (updateError1) throw updateError1;
       
       const { error: updateError2 } = await supabase
-        .from('resumes')
-        .update({ rank: resume.rank })
-        .eq('id', swapResume.id);
+        .from('reports')
+        .update({ candidate_rank: report.candidate_rank })
+        .eq('id', swapReport.id);
         
       if (updateError2) throw updateError2;
       

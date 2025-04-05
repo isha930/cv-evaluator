@@ -91,7 +91,7 @@ const UploadForm: React.FC = () => {
     setIsUploading(true);
     
     try {
-      // First, create the job
+      // First, create the resume entry with job details
       const jobData = {
         title: jobTitle,
         description: jobDescription,
@@ -115,6 +115,8 @@ const UploadForm: React.FC = () => {
         const formData = new FormData();
         formData.append('resume', file);
         formData.append('jobId', jobId);
+        formData.append('skillsWeight', skillsWeight.toString());
+        formData.append('experienceWeight', experienceWeight.toString());
         
         try {
           await uploadResume(formData);
@@ -299,9 +301,7 @@ const UploadForm: React.FC = () => {
               min={0} 
               max={100} 
               step={1}
-              onValueChange={(value) => {
-                setSkillsWeight(value[0]);
-              }}
+              onValueChange={(values) => setSkillsWeight(values[0])}
             />
           </div>
           

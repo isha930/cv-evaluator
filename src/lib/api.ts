@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Job-related functions
+// Resume-related functions
 export const createJob = async (jobData: {
   title: string;
   description: string;
@@ -10,6 +10,7 @@ export const createJob = async (jobData: {
   experienceWeight: number;
 }) => {
   try {
+    // Create a resume entry with job details
     const { data, error } = await supabase
       .from('resumes')
       .insert({
@@ -97,7 +98,7 @@ export const getJobById = async (jobId: string) => {
   }
 };
 
-// Resume-related functions
+// Resume upload and retrieval functions
 export const uploadResume = async (formData: FormData) => {
   try {
     const response = await fetch('/api/resumes/upload', {
@@ -121,7 +122,7 @@ export const uploadResume = async (formData: FormData) => {
 
 export const getResumesByJobId = async (jobId: string) => {
   try {
-    // First get the job details
+    // First get the job details from resumes table
     const { data: resume, error: resumeError } = await supabase
       .from('resumes')
       .select('*')
@@ -130,7 +131,7 @@ export const getResumesByJobId = async (jobId: string) => {
       
     if (resumeError) throw resumeError;
     
-    // Then get the related reports
+    // Then get the related candidate reports
     const { data: reports, error: reportsError } = await supabase
       .from('reports')
       .select('*')
@@ -159,18 +160,53 @@ export const getResumesByJobId = async (jobId: string) => {
   }
 };
 
-export const updateResumeRank = async (resumeId: string, direction: 'up' | 'down') => {
+export const updateResumeRank = async (reportId: string, direction: 'up' | 'down') => {
   try {
-    const response = await fetch(`/api/resumes/rank/${resumeId}/${direction}`, {
-      method: 'PUT'
-    });
+    // First get the current report
+    const { data: report, error: reportError } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('id', reportId)
+      .single();
+      
+    if (reportError) throw reportError;
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to update rank');
+    // Get all reports for this resume
+    const { data: reports, error: reportsError } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('resume_id', report.resume_id)
+      .order('candidate_rank', { ascending: true });
+      
+    if (reportsError) throw reportsError;
+    
+    const currentIndex = reports.findIndex(r => r.id === reportId);
+    let targetIndex;
+    
+    if (direction === 'up' && currentIndex > 0) {
+      targetIndex = currentIndex - 1;
+    } else if (direction === 'down' && currentIndex < reports.length - 1) {
+      targetIndex = currentIndex + 1;
+    } else {
+      throw new Error('Cannot move in that direction');
     }
     
-    return await response.json();
+    // Swap ranks
+    const currentRank = reports[currentIndex].candidate_rank || currentIndex + 1;
+    const targetRank = reports[targetIndex].candidate_rank || targetIndex + 1;
+    
+    // Update ranks
+    await supabase
+      .from('reports')
+      .update({ candidate_rank: targetRank })
+      .eq('id', reportId);
+      
+    await supabase
+      .from('reports')
+      .update({ candidate_rank: currentRank })
+      .eq('id', reports[targetIndex].id);
+    
+    return { success: true };
   } catch (error) {
     console.error('Error updating rank:', error);
     toast.error(error.message || 'Failed to update ranking');
@@ -192,45 +228,6 @@ export const updateResumeRankDirect = async (reportId: string, newRank: number) 
   } catch (error) {
     console.error('Error updating rank directly:', error);
     toast.error('Failed to update ranking');
-    throw error;
-  }
-};
-
-// Add the getResumeStats function
-export const getResumeStats = async (jobId: string) => {
-  try {
-    // Get reports for this resume
-    const { data, error } = await supabase
-      .from('reports')
-      .select('skill_percentage, experience_percentage, overall_score')
-      .eq('resume_id', jobId);
-      
-    if (error) throw error;
-    
-    // Calculate statistics
-    const totalCount = data.length;
-    const avgSkillScore = totalCount > 0 
-      ? Math.round(data.reduce((sum, r) => sum + Number(r.skill_percentage || 0), 0) / totalCount) 
-      : 0;
-    const avgExpScore = totalCount > 0 
-      ? Math.round(data.reduce((sum, r) => sum + Number(r.experience_percentage || 0), 0) / totalCount) 
-      : 0;
-    const avgOverallScore = totalCount > 0 
-      ? Math.round(data.reduce((sum, r) => sum + Number(r.overall_score || 0), 0) / totalCount) 
-      : 0;
-    
-    return {
-      totalCount,
-      avgSkillScore,
-      avgExpScore,
-      avgOverallScore,
-      highScoreCandidates: data.filter(r => Number(r.overall_score) >= 80).length,
-      mediumScoreCandidates: data.filter(r => Number(r.overall_score) >= 60 && Number(r.overall_score) < 80).length,
-      lowScoreCandidates: data.filter(r => Number(r.overall_score) < 60).length
-    };
-  } catch (error) {
-    console.error('Error fetching resume statistics:', error);
-    toast.error('Failed to fetch statistics');
     throw error;
   }
 };
