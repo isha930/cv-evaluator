@@ -48,6 +48,7 @@ module.exports = {
       userId: resume.user_id
     };
   },
+  
   // Schema for inserting a new resume
   getResumeInsertData: (resumeData) => {
     return {
@@ -60,6 +61,7 @@ module.exports = {
       experience_weight: resumeData.experienceWeight || 50
     };
   },
+  
   // Helper functions for Report table
   formatReportForResponse: (report) => {
     return {
@@ -77,6 +79,7 @@ module.exports = {
       createdAt: report.created_at
     };
   },
+  
   // Schema for inserting a new report
   getReportInsertData: (reportData) => {
     return {

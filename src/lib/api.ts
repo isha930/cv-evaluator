@@ -43,28 +43,32 @@ export const createJob = async (jobData: {
 
 export const getJobs = async () => {
   try {
+    console.log('Fetching jobs from Supabase...');
     const { data, error } = await supabase
       .from('resumes')
       .select('*')
       .order('created_at', { ascending: false });
       
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    
+    console.log('Jobs fetched:', data);
     
     // Map resumes with job_title to job objects
-    const uniqueJobs = data.reduce((acc, resume) => {
-      if (resume.job_title && !acc.some(job => job.title === resume.job_title)) {
-        acc.push({
-          id: resume.id,
-          title: resume.job_title,
-          description: resume.job_description,
-          skillsWeight: resume.skills_weight,
-          experienceWeight: resume.experience_weight,
-          createdAt: resume.created_at
-        });
-      }
-      return acc;
-    }, []);
+    const uniqueJobs = data
+      .filter(resume => resume.job_title) // Filter out entries without job titles
+      .map(resume => ({
+        id: resume.id,
+        title: resume.job_title,
+        description: resume.job_description,
+        skillsWeight: resume.skills_weight,
+        experienceWeight: resume.experience_weight,
+        createdAt: resume.created_at
+      }));
     
+    console.log('Formatted jobs:', uniqueJobs);
     return uniqueJobs;
   } catch (error) {
     console.error('Error fetching jobs:', error);
@@ -75,13 +79,19 @@ export const getJobs = async () => {
 
 export const getJobById = async (jobId: string) => {
   try {
+    console.log('Fetching job by ID:', jobId);
     const { data, error } = await supabase
       .from('resumes')
       .select('*')
       .eq('id', jobId)
       .single();
       
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    
+    console.log('Job fetched:', data);
     
     return {
       id: data.id,
@@ -199,6 +209,8 @@ export const uploadResume = async (formData: FormData) => {
 
 export const getResumesByJobId = async (jobId: string) => {
   try {
+    console.log('Fetching resumes for job ID:', jobId);
+    
     // Get the related candidate reports
     const { data: reports, error: reportsError } = await supabase
       .from('reports')
@@ -206,7 +218,17 @@ export const getResumesByJobId = async (jobId: string) => {
       .eq('resume_id', jobId)
       .order('candidate_rank', { ascending: true });
       
-    if (reportsError) throw reportsError;
+    if (reportsError) {
+      console.error('Supabase error:', reportsError);
+      throw reportsError;
+    }
+    
+    console.log('Reports fetched:', reports);
+    
+    if (!reports || reports.length === 0) {
+      console.log('No reports found for this job ID');
+      return [];
+    }
     
     return reports.map(report => ({
       id: report.id,

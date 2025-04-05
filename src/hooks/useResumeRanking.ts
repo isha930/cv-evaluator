@@ -39,8 +39,10 @@ export const useResumeRanking = (jobId: string | null) => {
     if (!jobId) return;
     
     try {
+      console.log('Fetching resumes for job ID:', jobId);
       setIsLoading(true);
       const data = await getResumesByJobId(jobId);
+      console.log('Resume data fetched:', data);
       setResumes(data);
     } catch (error) {
       console.error("Error fetching resumes:", error);
@@ -54,15 +56,19 @@ export const useResumeRanking = (jobId: string | null) => {
     if (!jobId) return;
     
     try {
+      console.log('Fetching job details for ID:', jobId);
       const job = await getJobById(jobId);
-      setJobTitle(job.title);
+      console.log('Job details fetched:', job);
+      setJobTitle(job.title || 'Unknown Job');
     } catch (error) {
       console.error("Error fetching job details:", error);
+      setJobTitle('Job Details Not Available');
     }
   };
   
   const handleRankUp = async (id: string) => {
     try {
+      console.log('Moving candidate up:', id);
       await updateResumeRank(id, "up");
       
       // Optimistically update the UI
@@ -80,6 +86,9 @@ export const useResumeRanking = (jobId: string | null) => {
       
       setResumes(newResumes);
       toast.success("Candidate moved up in rankings");
+      
+      // Refresh data to ensure UI is in sync with server
+      fetchResumes();
     } catch (error) {
       console.error("Error updating rank:", error);
       toast.error("Failed to update ranking");
@@ -90,6 +99,7 @@ export const useResumeRanking = (jobId: string | null) => {
   
   const handleRankDown = async (id: string) => {
     try {
+      console.log('Moving candidate down:', id);
       await updateResumeRank(id, "down");
       
       // Optimistically update the UI
@@ -107,6 +117,9 @@ export const useResumeRanking = (jobId: string | null) => {
       
       setResumes(newResumes);
       toast.success("Candidate moved down in rankings");
+      
+      // Refresh data to ensure UI is in sync with server
+      fetchResumes();
     } catch (error) {
       console.error("Error updating rank:", error);
       toast.error("Failed to update ranking");
@@ -116,6 +129,7 @@ export const useResumeRanking = (jobId: string | null) => {
   };
   
   const handleView = (id: string) => {
+    console.log('Viewing resume details:', id);
     const resume = resumes.find(r => r.id === id);
     if (resume) {
       setSelectedResume(resume);
