@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { getResumesByJobId, updateResumeRank, getJobById } from "@/lib/api";
 import { ResumeData } from "@/components/ResumeCard";
+import { supabase } from "@/integrations/supabase/client";
 
 // Define Resume type from the API
 export interface Resume {
@@ -41,12 +42,45 @@ export const useResumeRanking = (jobId: string | null) => {
     try {
       console.log('Fetching resumes for job ID:', jobId);
       setIsLoading(true);
-      const data = await getResumesByJobId(jobId);
-      console.log('Resume data fetched:', data);
-      setResumes(data);
+      
+      // Direct Supabase query to debug
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('resume_id', jobId)
+        .order('candidate_rank', { ascending: true });
+        
+      if (error) {
+        console.error("Supabase query error:", error);
+        throw error;
+      }
+      
+      console.log('Resume data fetched directly from Supabase:', data);
+      
+      if (data && data.length > 0) {
+        const formattedResumes: Resume[] = data.map(report => ({
+          id: report.id,
+          name: report.employee_name,
+          position: report.position,
+          skill_score: Number(report.skill_percentage),
+          skill_description: report.skill_description,
+          experience_score: Number(report.experience_percentage),
+          experience_description: report.experience_description,
+          overall_score: Number(report.overall_score),
+          summary: report.resume_details || '',
+          rank: report.candidate_rank || 0
+        }));
+        
+        console.log('Formatted resumes:', formattedResumes);
+        setResumes(formattedResumes);
+      } else {
+        console.log('No reports found for this job ID');
+        setResumes([]);
+      }
     } catch (error) {
       console.error("Error fetching resumes:", error);
       toast.error("Failed to load resumes");
+      setResumes([]);
     } finally {
       setIsLoading(false);
     }
@@ -57,9 +91,26 @@ export const useResumeRanking = (jobId: string | null) => {
     
     try {
       console.log('Fetching job details for ID:', jobId);
-      const job = await getJobById(jobId);
-      console.log('Job details fetched:', job);
-      setJobTitle(job.title || 'Unknown Job');
+      
+      // Direct Supabase query to debug
+      const { data, error } = await supabase
+        .from('resumes')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+        
+      if (error) {
+        console.error("Supabase job query error:", error);
+        throw error;
+      }
+      
+      console.log('Job details fetched from Supabase:', data);
+      
+      if (data) {
+        setJobTitle(data.job_title || 'Unknown Job');
+      } else {
+        setJobTitle('Job Details Not Available');
+      }
     } catch (error) {
       console.error("Error fetching job details:", error);
       setJobTitle('Job Details Not Available');
@@ -176,7 +227,7 @@ export const useResumeRanking = (jobId: string | null) => {
     stats: {
       totalCandidates: resumes.length,
       averageScore: getAverageScore(),
-      topPerformer: resumes[0]?.name || 'None'
+      topPerformer: resumes.length > 0 ? resumes[0]?.name || 'None' : 'None'
     }
   };
 };

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -47,6 +46,7 @@ export const getJobs = async () => {
     const { data, error } = await supabase
       .from('resumes')
       .select('*')
+      .not('job_title', 'is', null)
       .order('created_at', { ascending: false });
       
     if (error) {
@@ -234,11 +234,11 @@ export const getResumesByJobId = async (jobId: string) => {
       id: report.id,
       name: report.employee_name,
       position: report.position,
-      skill_score: report.skill_percentage,
+      skill_score: Number(report.skill_percentage),
       skill_description: report.skill_description,
-      experience_score: report.experience_percentage,
+      experience_score: Number(report.experience_percentage),
       experience_description: report.experience_description,
-      overall_score: report.overall_score,
+      overall_score: Number(report.overall_score),
       summary: report.resume_details || '',
       rank: report.candidate_rank || 0,
       file_url: '' // This would come from a join in a real implementation
