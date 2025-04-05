@@ -50,7 +50,7 @@ export const getJobs = async () => {
       
     if (error) throw error;
     
-    // Group by job_title to get unique jobs
+    // Map resumes with job_title to job objects
     const uniqueJobs = data.reduce((acc, resume) => {
       if (resume.job_title && !acc.some(job => job.title === resume.job_title)) {
         acc.push({
@@ -101,37 +101,105 @@ export const getJobById = async (jobId: string) => {
 // Resume upload and retrieval functions
 export const uploadResume = async (formData: FormData) => {
   try {
-    const response = await fetch('/api/resumes/upload', {
-      method: 'POST',
-      body: formData
-    });
+    // Extract data from formData
+    const jobId = formData.get('jobId') as string;
+    const file = formData.get('resume') as File;
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to upload resume');
+    if (!jobId || !file) {
+      throw new Error('Missing required data');
     }
     
-    const data = await response.json();
-    return data;
+    // Get the job details to get weights
+    const { data: jobData, error: jobError } = await supabase
+      .from('resumes')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+      
+    if (jobError) throw jobError;
+    
+    // Upload the file to Supabase Storage
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    
+    const { data: storageData, error: storageError } = await supabase.storage
+      .from('resumes')
+      .upload(fileName, file);
+      
+    if (storageError) throw storageError;
+    
+    // Get the public URL
+    const { data: urlData } = supabase.storage
+      .from('resumes')
+      .getPublicUrl(fileName);
+      
+    const fileUrl = urlData.publicUrl;
+    
+    // Generate mock analysis based on random scores
+    const skillScore = Math.floor(Math.random() * 41) + 60; // 60-100
+    const experienceScore = Math.floor(Math.random() * 41) + 60; // 60-100
+    
+    // Calculate weighted score
+    const overallScore = Math.round(
+      (skillScore * (jobData.skills_weight / 100)) + 
+      (experienceScore * (jobData.experience_weight / 100))
+    );
+    
+    // Count existing reports to determine rank
+    const { count, error: countError } = await supabase
+      .from('reports')
+      .select('*', { count: 'exact' })
+      .eq('resume_id', jobId);
+      
+    if (countError) throw countError;
+    
+    // Create a sample candidate name
+    const names = ['Alex Smith', 'Jordan Taylor', 'Casey Johnson', 'Morgan Williams', 'Riley Brown'];
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    
+    // Create a sample position
+    const positions = ['Software Engineer', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'UI/UX Developer'];
+    const randomPosition = positions[Math.floor(Math.random() * positions.length)];
+    
+    // Insert into reports
+    const { data: reportData, error: reportError } = await supabase
+      .from('reports')
+      .insert({
+        resume_id: jobId,
+        employee_name: randomName,
+        position: randomPosition,
+        skill_percentage: skillScore,
+        skill_description: `Candidate has demonstrated ${skillScore}% of the required skills.`,
+        experience_percentage: experienceScore,
+        experience_description: `Candidate has ${experienceScore}% relevant experience for this role.`,
+        overall_score: overallScore,
+        resume_details: `${randomName} is a ${randomPosition} with strong technical skills and relevant experience.`,
+        candidate_rank: (count || 0) + 1
+      })
+      .select()
+      .single();
+      
+    if (reportError) throw reportError;
+    
+    return {
+      id: reportData.id,
+      name: reportData.employee_name,
+      position: reportData.position,
+      skillScore: reportData.skill_percentage,
+      experienceScore: reportData.experience_percentage,
+      overallScore: reportData.overall_score,
+      rank: reportData.candidate_rank
+    };
   } catch (error) {
     console.error('Error uploading resume:', error);
-    toast.error(error.message || 'Failed to upload resume');
+    toast.error('Failed to upload resume');
     throw error;
   }
 };
 
 export const getResumesByJobId = async (jobId: string) => {
   try {
-    // First get the job details from resumes table
-    const { data: resume, error: resumeError } = await supabase
-      .from('resumes')
-      .select('*')
-      .eq('id', jobId)
-      .single();
-      
-    if (resumeError) throw resumeError;
-    
-    // Then get the related candidate reports
+    // Get the related candidate reports
     const { data: reports, error: reportsError } = await supabase
       .from('reports')
       .select('*')
@@ -151,7 +219,7 @@ export const getResumesByJobId = async (jobId: string) => {
       overall_score: report.overall_score,
       summary: report.resume_details || '',
       rank: report.candidate_rank || 0,
-      file_url: resume.file_url
+      file_url: '' // This would come from a join in a real implementation
     }));
   } catch (error) {
     console.error('Error fetching resumes:', error);

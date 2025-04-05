@@ -33,42 +33,7 @@ Supabase Report Table Structure:
 - updated_at: timestamp (default: now())
 */
 
-const createResumeSchema = `
-CREATE TABLE IF NOT EXISTS resumes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  file_name TEXT NOT NULL DEFAULT 'NOT NULL',
-  file_url TEXT NOT NULL DEFAULT 'NOT NULL',
-  job_title TEXT,
-  job_description TEXT,
-  skills_weight INTEGER DEFAULT 50,
-  experience_weight INTEGER DEFAULT 50,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-`;
-
-const createReportSchema = `
-CREATE TABLE IF NOT EXISTS reports (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  resume_id UUID NOT NULL REFERENCES resumes(id),
-  employee_name TEXT NOT NULL DEFAULT 'Unknown',
-  position TEXT NOT NULL DEFAULT 'Not Specified',
-  skill_percentage NUMERIC NOT NULL DEFAULT 0,
-  skill_description TEXT NOT NULL DEFAULT 'No skill description available',
-  experience_percentage NUMERIC NOT NULL DEFAULT 0,
-  experience_description TEXT NOT NULL DEFAULT 'No experience description available',
-  overall_score NUMERIC NOT NULL DEFAULT 0,
-  resume_details TEXT,
-  candidate_rank INTEGER,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-`;
-
 module.exports = {
-  createResumeSchema,
-  createReportSchema,
   // Helper functions for Resume table
   formatResumeForResponse: (resume) => {
     return {
