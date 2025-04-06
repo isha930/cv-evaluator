@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { ResumeData } from "@/components/ResumeCard";
 import { supabase } from "@/integrations/supabase/client";
+import { updateResumeRank as apiUpdateResumeRank } from "@/lib/api";
 
 // Define Resume type from the API
 export interface Resume {
@@ -124,7 +125,7 @@ export const useResumeRanking = (jobId: string | null) => {
   const handleRankUp = async (id: string) => {
     try {
       console.log('Moving candidate up:', id);
-      await updateResumeRank(id, "up");
+      await apiUpdateResumeRank(id, "up");
       
       // Optimistically update the UI
       const currentIndex = resumes.findIndex(resume => resume.id === id);
@@ -155,7 +156,7 @@ export const useResumeRanking = (jobId: string | null) => {
   const handleRankDown = async (id: string) => {
     try {
       console.log('Moving candidate down:', id);
-      await updateResumeRank(id, "down");
+      await apiUpdateResumeRank(id, "down");
       
       // Optimistically update the UI
       const currentIndex = resumes.findIndex(resume => resume.id === id);

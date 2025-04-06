@@ -2,7 +2,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { FileUpload, FilePlus } from "lucide-react";
+import { FileUp, FilePlus } from "lucide-react";
 
 interface EmptyStateProps {
   hasJobId: boolean;
@@ -12,7 +12,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ hasJobId }) => {
   return (
     <div className="text-center py-16 px-6 bg-card rounded-lg shadow-subtle border flex flex-col items-center">
       <div className="bg-muted rounded-full p-6 mb-6">
-        <FileUpload className="h-12 w-12 text-muted-foreground" />
+        <FileUp className="h-12 w-12 text-muted-foreground" />
       </div>
       
       <h3 className="text-2xl font-medium mb-3">No Resumes Found</h3>
