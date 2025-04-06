@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -248,6 +247,50 @@ export const getResumesByJobId = async (jobId: string) => {
     }));
   } catch (error) {
     console.error('Error fetching resumes:', error);
+    toast.error('Failed to fetch resumes');
+    throw error;
+  }
+};
+
+// New function to get all reports regardless of job ID
+export const getAllResumes = async () => {
+  try {
+    console.log('Fetching all resumes without job ID filter');
+    
+    // Direct Supabase query for all reports
+    const { data: reports, error: reportsError } = await supabase
+      .from('reports')
+      .select('*')
+      .order('candidate_rank', { ascending: true });
+      
+    if (reportsError) {
+      console.error('Supabase error:', reportsError);
+      throw reportsError;
+    }
+    
+    console.log('All reports fetched:', reports);
+    
+    if (!reports || reports.length === 0) {
+      console.log('No reports found in the database');
+      return [];
+    }
+    
+    return reports.map(report => ({
+      id: report.id,
+      name: report.employee_name,
+      position: report.position,
+      skill_score: Number(report.skill_percentage),
+      skill_description: report.skill_description,
+      experience_score: Number(report.experience_percentage),
+      experience_description: report.experience_description,
+      overall_score: Number(report.overall_score),
+      summary: report.resume_details || '',
+      rank: report.candidate_rank || 0,
+      file_url: '',
+      job_id: report.resume_id // Including the job ID for reference
+    }));
+  } catch (error) {
+    console.error('Error fetching all resumes:', error);
     toast.error('Failed to fetch resumes');
     throw error;
   }

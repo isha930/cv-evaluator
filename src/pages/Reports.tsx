@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +27,7 @@ import {
   YAxis,
 } from "recharts";
 import { toast } from "sonner";
-import { getJobs, getResumesByJobId } from "@/lib/api";
+import { getJobs, getAllResumes } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Reports = () => {
@@ -47,10 +46,13 @@ const Reports = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   
-  // Fetch jobs on component mount
+  // Fetch jobs and all resumes on component mount
   useEffect(() => {
-    const fetchJobs = async () => {
+    const fetchData = async () => {
       try {
+        setIsLoading(true);
+        
+        // Fetch jobs for the dropdown
         const jobsData = await getJobs();
         setJobs(jobsData);
         
@@ -58,56 +60,54 @@ const Reports = () => {
         if (jobsData.length > 0) {
           setSelectedJobId(jobsData[0].id);
         }
-      } catch (error) {
-        console.error("Error fetching jobs:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchJobs();
-  }, []);
-  
-  // Fetch resumes when selected job changes
-  useEffect(() => {
-    if (!selectedJobId) return;
-    
-    const fetchResumes = async () => {
-      try {
-        setIsLoading(true);
-        const resumesData = await getResumesByJobId(selectedJobId);
+        
+        // Fetch all resumes regardless of job ID
+        const resumesData = await getAllResumes();
         setResumes(resumesData);
         
         // Calculate statistics
         if (resumesData.length > 0) {
-          const totalCount = resumesData.length;
-          const avgSkillScore = Math.round(resumesData.reduce((acc, r) => acc + r.skill_score, 0) / totalCount);
-          const avgExpScore = Math.round(resumesData.reduce((acc, r) => acc + r.experience_score, 0) / totalCount);
-          const avgOverallScore = Math.round(resumesData.reduce((acc, r) => acc + r.overall_score, 0) / totalCount);
-          
-          const highScoreCandidates = resumesData.filter(r => r.overall_score >= 80).length;
-          const mediumScoreCandidates = resumesData.filter(r => r.overall_score >= 60 && r.overall_score < 80).length;
-          const lowScoreCandidates = resumesData.filter(r => r.overall_score < 60).length;
-          
-          setStats({
-            totalCount,
-            avgSkillScore,
-            avgExpScore,
-            avgOverallScore,
-            highScoreCandidates,
-            mediumScoreCandidates,
-            lowScoreCandidates
-          });
+          calculateStats(resumesData);
         }
       } catch (error) {
-        console.error("Error fetching resumes or stats:", error);
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load data");
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchResumes();
-  }, [selectedJobId]);
+    fetchData();
+  }, []);
+  
+  // Calculate statistics based on resume data
+  const calculateStats = (resumeData) => {
+    if (!resumeData || resumeData.length === 0) return;
+    
+    const totalCount = resumeData.length;
+    const avgSkillScore = Math.round(resumeData.reduce((acc, r) => acc + r.skill_score, 0) / totalCount);
+    const avgExpScore = Math.round(resumeData.reduce((acc, r) => acc + r.experience_score, 0) / totalCount);
+    const avgOverallScore = Math.round(resumeData.reduce((acc, r) => acc + r.overall_score, 0) / totalCount);
+    
+    const highScoreCandidates = resumeData.filter(r => r.overall_score >= 80).length;
+    const mediumScoreCandidates = resumeData.filter(r => r.overall_score >= 60 && r.overall_score < 80).length;
+    const lowScoreCandidates = resumeData.filter(r => r.overall_score < 60).length;
+    
+    setStats({
+      totalCount,
+      avgSkillScore,
+      avgExpScore,
+      avgOverallScore,
+      highScoreCandidates,
+      mediumScoreCandidates,
+      lowScoreCandidates
+    });
+  };
+  
+  // Filter resumes by selected job ID (optional functionality)
+  const filteredResumes = selectedJobId 
+    ? resumes.filter(resume => resume.job_id === selectedJobId)
+    : resumes;
   
   // Prepare chart data
   const skillDistributionData = [
@@ -156,7 +156,7 @@ const Reports = () => {
             <div>
               <h1 className="text-3xl font-bold tracking-tight mb-2">Candidate Reports</h1>
               <p className="text-muted-foreground">
-                Comprehensive overview of candidate evaluations and metrics
+                Comprehensive overview of all candidate evaluations and metrics
               </p>
             </div>
             
@@ -179,9 +179,10 @@ const Reports = () => {
           <div className="mb-6">
             <Select value={selectedJobId} onValueChange={setSelectedJobId}>
               <SelectTrigger className="w-full md:w-[300px]">
-                <SelectValue placeholder="Select a job position" />
+                <SelectValue placeholder="Filter by job position (optional)" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="">All Positions</SelectItem>
                 {jobs.map(job => (
                   <SelectItem key={job.id} value={job.id}>{job.title}</SelectItem>
                 ))}
@@ -198,7 +199,7 @@ const Reports = () => {
             <div className="text-center py-12 bg-card rounded-lg shadow-subtle border">
               <h3 className="text-xl font-medium mb-2">No Data Available</h3>
               <p className="text-muted-foreground mb-4">
-                There are no resumes uploaded for this job position yet.
+                There are no resumes uploaded yet. Start by uploading some resumes.
               </p>
               <Button onClick={() => window.location.href = '/upload'}>
                 Upload Resumes
@@ -334,7 +335,7 @@ const Reports = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {resumes.slice(0, 5).map((resume, index) => (
+                          {filteredResumes.slice(0, 5).map((resume, index) => (
                             <tr key={resume.id} className="border-b hover:bg-muted/50">
                               <td className="py-3 px-4">#{resume.rank}</td>
                               <td className="py-3 px-4 font-medium">{resume.name}</td>
@@ -347,9 +348,9 @@ const Reports = () => {
                         </tbody>
                       </table>
                     </div>
-                    {resumes.length > 5 && (
+                    {filteredResumes.length > 5 && (
                       <div className="mt-4 text-center">
-                        <Button variant="outline" onClick={() => window.location.href = `/ranking?jobId=${selectedJobId}`}>
+                        <Button variant="outline" onClick={() => window.location.href = selectedJobId ? `/ranking?jobId=${selectedJobId}` : '/ranking'}>
                           View All Candidates
                         </Button>
                       </div>
