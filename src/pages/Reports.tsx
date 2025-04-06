@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,13 +28,10 @@ import {
   YAxis,
 } from "recharts";
 import { toast } from "sonner";
-import { getJobs, getAllResumes } from "@/lib/api";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getAllResumes } from "@/lib/api";
 
 const Reports = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [jobs, setJobs] = useState([]);
-  const [selectedJobId, setSelectedJobId] = useState("");
   const [resumes, setResumes] = useState([]);
   const [stats, setStats] = useState({
     totalCount: 0,
@@ -46,20 +44,11 @@ const Reports = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   
-  // Fetch jobs and all resumes on component mount
+  // Fetch all resumes on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
-        // Fetch jobs for the dropdown
-        const jobsData = await getJobs();
-        setJobs(jobsData);
-        
-        // If jobs exist, select the first one by default
-        if (jobsData.length > 0) {
-          setSelectedJobId(jobsData[0].id);
-        }
         
         // Fetch all resumes regardless of job ID
         const resumesData = await getAllResumes();
@@ -103,11 +92,6 @@ const Reports = () => {
       lowScoreCandidates
     });
   };
-  
-  // Filter resumes by selected job ID (optional functionality)
-  const filteredResumes = selectedJobId 
-    ? resumes.filter(resume => resume.job_id === selectedJobId)
-    : resumes;
   
   // Prepare chart data
   const skillDistributionData = [
@@ -174,20 +158,6 @@ const Reports = () => {
                 Share
               </Button>
             </div>
-          </div>
-          
-          <div className="mb-6">
-            <Select value={selectedJobId} onValueChange={setSelectedJobId}>
-              <SelectTrigger className="w-full md:w-[300px]">
-                <SelectValue placeholder="Filter by job position (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All Positions</SelectItem>
-                {jobs.map(job => (
-                  <SelectItem key={job.id} value={job.id}>{job.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           
           {isLoading ? (
@@ -335,7 +305,7 @@ const Reports = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredResumes.slice(0, 5).map((resume, index) => (
+                          {resumes.slice(0, 5).map((resume, index) => (
                             <tr key={resume.id} className="border-b hover:bg-muted/50">
                               <td className="py-3 px-4">#{resume.rank}</td>
                               <td className="py-3 px-4 font-medium">{resume.name}</td>
@@ -348,9 +318,9 @@ const Reports = () => {
                         </tbody>
                       </table>
                     </div>
-                    {filteredResumes.length > 5 && (
+                    {resumes.length > 5 && (
                       <div className="mt-4 text-center">
-                        <Button variant="outline" onClick={() => window.location.href = selectedJobId ? `/ranking?jobId=${selectedJobId}` : '/ranking'}>
+                        <Button variant="outline" onClick={() => window.location.href = '/ranking'}>
                           View All Candidates
                         </Button>
                       </div>
