@@ -80,6 +80,15 @@ export const getResumesByJobId = async (jobId) => {
   }
 };
 
+export const getAllResumes = async () => {
+  try {
+    const response = await api.get('/resumes');
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
 export const getResumeById = async (resumeId) => {
   try {
     const response = await api.get(`/resumes/${resumeId}`);
