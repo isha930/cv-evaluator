@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -42,7 +43,8 @@ export const createJob = async (jobData: {
 
 export const getJobs = async () => {
   try {
-    console.log('Fetching jobs from Supabase...');
+    console.log('Fetching jobs directly from Supabase...');
+    // Direct Supabase query for resumes with job info
     const { data, error } = await supabase
       .from('resumes')
       .select('*')
@@ -54,7 +56,7 @@ export const getJobs = async () => {
       throw error;
     }
     
-    console.log('Jobs fetched:', data);
+    console.log('Jobs data fetched:', data);
     
     // Map resumes with job_title to job objects
     const uniqueJobs = data
@@ -111,6 +113,7 @@ export const getJobById = async (jobId: string) => {
 // Resume upload and retrieval functions
 export const uploadResume = async (formData: FormData) => {
   try {
+    // Using Supabase directly instead of a custom API endpoint
     // Extract data from formData
     const jobId = formData.get('jobId') as string;
     const file = formData.get('resume') as File;
@@ -211,7 +214,7 @@ export const getResumesByJobId = async (jobId: string) => {
   try {
     console.log('Fetching resumes for job ID:', jobId);
     
-    // Get the related candidate reports
+    // Direct Supabase query for reports
     const { data: reports, error: reportsError } = await supabase
       .from('reports')
       .select('*')
